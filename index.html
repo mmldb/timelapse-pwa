@@ -3,120 +3,241 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Capsule</title>
+    <title>CAPSULE.EXE</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="icon" href="data:,"> 
+    <link rel="icon" href="data:,">
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    
     <style>
-        /* --- Dark UI Styling --- */
-        body { margin: 0; background: #000; color: white; font-family: -apple-system, BlinkMacSystemFont, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        
-        /* Header */
-        header { padding: 10px 15px; position: absolute; top: 0; width: 100%; z-index: 20; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); pointer-events: none; }
-        header > * { pointer-events: auto; }
-        
-        select { background: rgba(50,50,50,0.9); color: white; border: none; padding: 8px; border-radius: 8px; font-size: 14px; backdrop-filter: blur(5px); max-width: 45%; }
-        .icon-btn { background: rgba(50,50,50,0.9); border: none; color: white; width: 35px; height: 35px; border-radius: 50%; font-size: 20px; display: flex; justify-content: center; align-items: center; cursor: pointer; }
-        
-        /* Version Label */
-        .version-tag { font-size: 10px; color: #555; background: #111; padding: 4px 8px; border-radius: 10px; opacity: 0.8; }
+        /* --- DOS / KEYGEN AESTHETICS --- */
+        :root {
+            --term-green: #33ff00;
+            --term-dim: #1a8000;
+            --term-bg: #000000;
+            --font-stack: 'VT323', monospace;
+        }
 
-        /* Camera & Overlays */
-        .viewport { flex-grow: 1; position: relative; display: flex; justify-content: center; align-items: center; background: #000; }
-        video, canvas { position: absolute; width: 100%; height: 100%; object-fit: cover; }
-        canvas { z-index: 5; display: none; }
-        
-        .overlay-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; opacity: 0.5; }
-        .guide-face { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); width: 200px; height: 280px; border: 2px dashed #0ff; border-radius: 50%; box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); }
-        .guide-thirds { width: 100%; height: 100%; background: linear-gradient(to right, transparent 33%, rgba(0,255,255,0.3) 33%, rgba(0,255,255,0.3) 33.5%, transparent 33.5%, transparent 66%, rgba(0,255,255,0.3) 66%, rgba(0,255,255,0.3) 66.5%, transparent 66.5%), linear-gradient(to bottom, transparent 33%, rgba(0,255,255,0.3) 33%, rgba(0,255,255,0.3) 33.5%, transparent 33.5%, transparent 66%, rgba(0,255,255,0.3) 66%, rgba(0,255,255,0.3) 66.5%, transparent 66.5%); }
+        body { 
+            margin: 0; background: var(--term-bg); color: var(--term-green); 
+            font-family: var(--font-stack); font-size: 20px; text-transform: uppercase;
+            height: 100vh; display: flex; flex-direction: column; overflow: hidden; 
+            letter-spacing: 1px;
+        }
 
-        /* Controls */
-        .controls { padding: 40px; background: #000; display: flex; justify-content: center; align-items: center; z-index: 20; min-height: 120px; padding-bottom: 50px; position: relative; }
-        .btn-capture { width: 80px; height: 80px; border-radius: 50%; background: white; border: 4px solid #444; }
-        .btn-flip { position: absolute; right: 30px; background: #333; color: white; border: none; padding: 15px; border-radius: 50%; font-size: 24px; }
-        .review-panel { display: none; gap: 20px; width: 100%; justify-content: center; }
-        .btn { padding: 15px 30px; border-radius: 30px; border: none; font-weight: bold; font-size: 18px; width: 40%; }
-        .btn-retry { background: #333; color: white; }
-        .btn-upload { background: #007AFF; color: white; }
+        /* --- LAYOUT --- */
+        header { 
+            padding: 10px; border-bottom: 2px solid var(--term-green);
+            display: flex; justify-content: space-between; align-items: center; 
+            background: var(--term-bg); z-index: 20;
+        }
+
+        .viewport { 
+            flex-grow: 1; position: relative; background: #111; 
+            border-left: 2px solid var(--term-green);
+            border-right: 2px solid var(--term-green);
+        }
+        
+        /* The Camera Feed (RAW) */
+        video, canvas { width: 100%; height: 100%; object-fit: cover; position: absolute; }
+        
+        /* Onion Skin Layer */
+        #onion-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            object-fit: cover; opacity: 0; pointer-events: none; z-index: 8;
+            filter: grayscale(100%); /* Optional: makes ghost image B&W for clarity */
+        }
+
+        /* Overlays (Guides) */
+        .overlay-layer { position: absolute; inset: 0; pointer-events: none; z-index: 10; opacity: 0.7; }
+        .guide-face { 
+            position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); 
+            width: 200px; height: 280px; 
+            border: 2px dashed var(--term-green); border-radius: 50%; 
+        }
+        .guide-thirds { 
+            width: 100%; height: 100%;
+            background: linear-gradient(to right, transparent 33%, var(--term-dim) 33%, var(--term-dim) 33.5%, transparent 33.5%, transparent 66%, var(--term-dim) 66%, var(--term-dim) 66.5%, transparent 66.5%),
+                        linear-gradient(to bottom, transparent 33%, var(--term-dim) 33%, var(--term-dim) 33.5%, transparent 33.5%, transparent 66%, var(--term-dim) 66%, var(--term-dim) 66.5%, transparent 66.5%);
+        }
+
+        /* Controls Area */
+        .controls { 
+            padding: 20px; border-top: 2px solid var(--term-green); background: var(--term-bg);
+            display: flex; flex-direction: column; gap: 10px; z-index: 20;
+        }
+
+        /* --- UI ELEMENTS (The "Keygen" Look) --- */
+        button {
+            background: var(--term-bg); color: var(--term-green);
+            border: 2px solid var(--term-green); padding: 10px;
+            font-family: var(--font-stack); font-size: 22px; cursor: pointer;
+            box-shadow: 4px 4px 0px var(--term-dim);
+        }
+        button:active { box-shadow: 1px 1px 0px var(--term-dim); transform: translate(3px, 3px); }
+
+        select, input {
+            background: var(--term-bg); color: var(--term-green);
+            border: 1px solid var(--term-green); padding: 5px;
+            font-family: var(--font-stack); font-size: 18px;
+        }
+
+        /* Top Bar Info */
+        .sys-info { font-size: 16px; color: var(--term-dim); }
+        .sys-info span { color: var(--term-green); }
+
+        /* Sliders */
+        .range-wrap { display: flex; align-items: center; gap: 10px; font-size: 16px; margin-bottom: 5px; }
+        input[type=range] { flex-grow: 1; accent-color: var(--term-green); }
 
         /* Modals */
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
-        .modal h2 { margin-bottom: 20px; color: #fff; }
-        .modal input, .modal select { padding: 15px; width: 100%; margin: 10px 0; font-size: 16px; background: #222; color: white; border: 1px solid #444; border-radius: 8px; }
+        .modal { 
+            position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 100; 
+            display: flex; flex-direction: column; justify-content: center; align-items: center; 
+            border: 4px double var(--term-green); padding: 20px;
+        }
+        .ascii-art { white-space: pre; font-size: 10px; line-height: 10px; margin-bottom: 20px; color: var(--term-dim); text-align: center; }
+
         .hidden { display: none !important; }
-        .close-btn { margin-top: 20px; background: transparent; color: #aaa; border: none; font-size: 14px; text-decoration: underline; }
+        
+        /* Capture Button Special Style */
+        .btn-capture { 
+            align-self: center; width: 100%; max-width: 300px;
+            text-align: center; font-weight: bold; letter-spacing: 3px;
+        }
     </style>
 </head>
 <body>
 
 <div id="setup-modal" class="modal hidden">
-    <h2>Welcome</h2>
-    <p style="color:#aaa;">Paste Dropbox Token:</p>
-    <input type="text" id="token-input" placeholder="sl.B5...">
-    <button class="btn btn-upload" onclick="saveToken()">Save</button>
+    <div class="ascii-art">
+   _____          _____  _____ __  __ __ 
+  / ____|   /\   |  __ \/ ____|  \/  |  |
+ | |       /  \  | |__) | (___ | \  / |  |
+ | |      / /\ \ |  ___/ \___ \| |\/| |  |
+ | |____ / ____ \| |     ____) | |  | |__|
+  \_____/_/    \_\_|    |_____/|_|  |_(__)
+    </div>
+    <p>> ENTER_DROPBOX_TOKEN:</p>
+    <input type="text" id="token-input" placeholder="sl.B5..." style="width: 80%;">
+    <br>
+    <button onclick="saveToken()">[ INITIALIZE ]</button>
 </div>
 
 <div id="project-modal" class="modal hidden">
-    <h2>New Project</h2>
-    <input type="text" id="new-proj-name" placeholder="Name (e.g., Gym)">
-    <select id="new-proj-overlay">
-        <option value="guide-face">Face Overlay</option>
-        <option value="guide-thirds">Landscape Grid</option>
-        <option value="guide-none">No Overlay</option>
+    <h2>> CREATE_NEW_PROJECT</h2>
+    <input type="text" id="new-proj-name" placeholder="PROJECT_NAME" style="width: 80%;">
+    <br>
+    <select id="new-proj-overlay" style="width: 80%;">
+        <option value="guide-face">OVERLAY: FACE</option>
+        <option value="guide-thirds">OVERLAY: GRID</option>
+        <option value="guide-none">OVERLAY: NULL</option>
     </select>
-    <button class="btn btn-upload" onclick="saveNewProject()">Create</button>
-    <button class="close-btn" onclick="toggleProjectModal()">Cancel</button>
+    <br><br>
+    <div style="display:flex; gap:10px;">
+        <button onclick="saveNewProject()">[ EXECUTE ]</button>
+        <button onclick="toggleProjectModal()" style="border-color: #555; color: #555;">[ ABORT ]</button>
+    </div>
 </div>
 
 <header>
     <div style="display:flex; gap:10px; align-items:center;">
+        <span style="font-size: 24px;">></span>
         <select id="project-select"></select>
-        <button class="icon-btn" onclick="toggleProjectModal()">+</button>
+        <button onclick="toggleProjectModal()" style="padding: 2px 8px;">+</button>
     </div>
-    
-    <div class="version-tag">v0.0.1</div>
-    
-    <div id="status-msg" style="font-size:12px; color:#aaa; width:40px; text-align:right;">Ready</div>
+    <div class="sys-info">CAM:<span id="cam-status">OFF</span></div>
 </header>
 
 <div class="viewport">
+    <img id="onion-layer" />
+    
     <video id="video" autoplay playsinline></video>
+    
     <canvas id="canvas"></canvas>
+    
     <div id="overlay-container" class="overlay-layer"></div>
 </div>
 
 <div class="controls">
-    <div id="cam-controls" style="width:100%; display:flex; justify-content:center; align-items:center;">
-        <button id="snap-btn" class="btn-capture"></button>
-        <button id="flip-btn" class="btn-flip" onclick="flipCamera()">↻</button>
+    <div class="range-wrap">
+        <span>GHOST:</span>
+        <input type="range" id="onion-slider" min="0" max="100" value="0" oninput="updateOnion(this.value)">
+        <span id="onion-val">0%</span>
     </div>
-    <div id="review-panel" class="review-panel">
-        <button class="btn btn-retry" onclick="retryPhoto()">Retake</button>
-        <button class="btn btn-upload" onclick="uploadPhoto()">Save</button>
+
+    <div id="cam-controls">
+        <button id="snap-btn" class="btn-capture">[ CAPTURE_FRAME ]</button>
+        <div style="display:flex; justify-content: space-between; margin-top: 10px;">
+            <button onclick="flipCamera()" style="font-size: 16px;">[ FLIP_CAM ]</button>
+            <span id="status-msg" style="align-self: center; font-size: 14px;">READY</span>
+        </div>
+    </div>
+
+    <div id="review-panel" class="hidden" style="display: flex; gap: 10px;">
+        <button onclick="retryPhoto()" style="flex:1; border-color: red; color: red;">[ DISCARD ]</button>
+        <button onclick="uploadPhoto()" style="flex:1;">[ UPLOAD_DATA ]</button>
     </div>
 </div>
 
 <script>
-    // --- 1. STATE & STORAGE ---
+    // --- 1. SYSTEM INIT ---
     let dbxToken = localStorage.getItem('dbx_token');
     if (!dbxToken) document.getElementById('setup-modal').classList.remove('hidden');
 
     const defaultProjects = [
-        { id: "face-daily", name: "Face Daily", overlay: "guide-face", folder: "/FaceProject", cam: "user" },
-        { id: "landscape", name: "Landscape", overlay: "guide-thirds", folder: "/Landscape", cam: "environment" }
+        { id: "face-daily", name: "FACE_DAILY", overlay: "guide-face", folder: "/FaceProject" },
+        { id: "landscape", name: "LANDSCAPE", overlay: "guide-thirds", folder: "/Landscape" }
     ];
     let myProjects = JSON.parse(localStorage.getItem('my_projects')) || defaultProjects;
 
-    // --- 2. CAMERA LOGIC ---
-    let currentStream = null;
-    let facingMode = "user";
-    const video = document.getElementById('video');
+    // --- 2. INDEXED DB (Memory System) ---
+    // We use this to store the "Ghost" images locally without re-downloading them
+    let db;
+    const DB_REQ = indexedDB.open("CapsuleDB", 1);
     
-    async function startCamera(mode) {
-        if(!mode) mode = facingMode; // Use current if undefined
-        
-        if (currentStream) {
-            currentStream.getTracks().forEach(track => track.stop());
+    DB_REQ.onupgradeneeded = (e) => {
+        let db = e.target.result;
+        if (!db.objectStoreNames.contains('ghosts')) {
+            db.createObjectStore('ghosts', { keyPath: 'id' });
         }
+    };
+    DB_REQ.onsuccess = (e) => { db = e.target.result; loadGhost(select.value); };
+
+    function saveGhost(projectId, blob) {
+        if(!db) return;
+        const tx = db.transaction(['ghosts'], 'readwrite');
+        tx.objectStore('ghosts').put({ id: projectId, blob: blob });
+    }
+
+    function loadGhost(projectId) {
+        if(!db) return;
+        const tx = db.transaction(['ghosts'], 'readonly');
+        const req = tx.objectStore('ghosts').get(projectId);
+        req.onsuccess = (e) => {
+            if (req.result) {
+                const url = URL.createObjectURL(req.result.blob);
+                document.getElementById('onion-layer').src = url;
+            } else {
+                document.getElementById('onion-layer').src = "";
+            }
+        };
+    }
+
+    // --- 3. ONION SKIN ---
+    function updateOnion(val) {
+        document.getElementById('onion-layer').style.opacity = val / 100;
+        document.getElementById('onion-val').innerText = val + "%";
+    }
+
+    // --- 4. CAMERA & PROJECT LOGIC ---
+    let currentStream = null;
+    let facingMode = "user"; // Default to selfie
+    const video = document.getElementById('video');
+    const select = document.getElementById('project-select');
+
+    async function startCamera(mode) {
+        if(!mode) mode = facingMode;
+        if (currentStream) currentStream.getTracks().forEach(t => t.stop());
         facingMode = mode;
         
         try {
@@ -125,26 +246,19 @@
             });
             video.srcObject = stream;
             currentStream = stream;
+            document.getElementById('cam-status').innerText = "ON";
         } catch (e) {
-            console.error("Camera access error:", e);
-            // Don't alert immediately, helps with permission persistence
+            document.getElementById('cam-status').innerText = "ERR";
         }
     }
-
-    function flipCamera() {
-        startCamera(facingMode === "user" ? "environment" : "user");
-    }
-
-    // --- 3. PROJECT MANAGER ---
-    const select = document.getElementById('project-select');
     
+    function flipCamera() { startCamera(facingMode === "user" ? "environment" : "user"); }
+
     function renderProjects() {
         select.innerHTML = "";
         myProjects.forEach(p => {
             const opt = document.createElement('option');
-            opt.value = p.id;
-            opt.innerText = p.name;
-            select.appendChild(opt);
+            opt.value = p.id; opt.innerText = p.name; select.appendChild(opt);
         });
         loadProject(myProjects[0].id);
     }
@@ -152,63 +266,49 @@
     function loadProject(id) {
         const proj = myProjects.find(p => p.id === id);
         if(!proj) return;
-        document.getElementById('overlay-container').className = "overlay-layer " + proj.overlay; 
+        document.getElementById('overlay-container').className = "overlay-layer " + proj.overlay;
+        loadGhost(id); // Try to find previous photo
     }
 
     select.addEventListener('change', (e) => loadProject(e.target.value));
 
-    function toggleProjectModal() { document.getElementById('project-modal').classList.toggle('hidden'); }
-
-    function saveNewProject() {
-        const name = document.getElementById('new-proj-name').value;
-        const overlay = document.getElementById('new-proj-overlay').value;
-        if(!name) return;
-        const id = name.toLowerCase().replace(/\s+/g, '-');
-        const newProj = {
-            id: id, name: name, overlay: overlay,
-            folder: "/" + name.replace(/\s+/g, ''), cam: "environment"
-        };
-        myProjects.push(newProj);
-        localStorage.setItem('my_projects', JSON.stringify(myProjects));
-        renderProjects();
-        select.value = id;
-        loadProject(id);
-        toggleProjectModal();
-    }
-
-    // --- 4. CAPTURE & UPLOAD ---
+    // --- 5. CAPTURE & UPLOAD ---
     const canvas = document.getElementById('canvas'); 
     let currentBlob = null;
 
     document.getElementById('snap-btn').addEventListener('click', () => {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
         const ctx = canvas.getContext('2d');
-        if(facingMode === "user") { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); } // Mirror fix
+        if(facingMode === "user") { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
         ctx.drawImage(video, 0, 0);
+        
         canvas.style.display = 'block'; 
-        document.getElementById('cam-controls').style.display = 'none';
-        document.getElementById('review-panel').style.display = 'flex';
+        document.getElementById('cam-controls').classList.add('hidden');
+        document.getElementById('review-panel').classList.remove('hidden');
         canvas.toBlob(b => currentBlob = b, 'image/jpeg', 0.95);
     });
 
     function retryPhoto() { 
         canvas.style.display = 'none'; 
-        document.getElementById('cam-controls').style.display = 'flex'; 
-        document.getElementById('review-panel').style.display = 'none'; 
+        document.getElementById('cam-controls').classList.remove('hidden');
+        document.getElementById('review-panel').classList.add('hidden');
         currentBlob = null; 
     }
 
     async function uploadPhoto() {
         if (!currentBlob) return;
         const status = document.getElementById('status-msg');
-        status.innerText = "Upload..";
+        status.innerText = "UPLOADING...";
+        
         const pid = select.value;
         const proj = myProjects.find(p => p.id === pid);
         const today = new Date().toISOString().split('T')[0];
 
         try {
-            // Weather (Silent fail if no permission)
+            // 1. Save locally for next time (The Onion Skin)
+            saveGhost(pid, currentBlob);
+
+            // 2. Metadata
             let temp = "N/A";
             try {
                 const pos = await new Promise((r, j) => navigator.geolocation.getCurrentPosition(r, j, {timeout:2000}));
@@ -216,16 +316,17 @@
                 temp = w.current_weather.temperature + "C";
             } catch(e){}
 
+            // 3. Upload
             await sendToDropbox(currentBlob, `${proj.folder}/${pid}-${today}.jpg`);
             const meta = { date: today, project: pid, temp: temp, cam: facingMode };
             await sendToDropbox(new Blob([JSON.stringify(meta)],{type:'application/json'}), `${proj.folder}/${pid}-${today}.json`);
 
-            alert(`Saved!`); 
+            alert("DATA_SAVED_SUCCESSFULLY"); 
             retryPhoto(); 
-            status.innerText = "Ready";
+            status.innerText = "READY";
         } catch(e) { 
-            alert("Error: "+e.message); 
-            status.innerText = "Error";
+            alert("FATAL_ERROR: "+e.message); 
+            status.innerText = "FAIL";
         }
     }
 
@@ -238,16 +339,21 @@
         if(!r.ok) throw new Error(await r.text());
     }
 
-    function saveToken() {
-        const t = document.getElementById('token-input').value.trim();
-        if(t) { localStorage.setItem('dbx_token', t); location.reload(); }
+    // Modal Logic
+    function toggleProjectModal() { document.getElementById('project-modal').classList.toggle('hidden'); }
+    function saveToken() { const t = document.getElementById('token-input').value.trim(); if(t) { localStorage.setItem('dbx_token', t); location.reload(); } }
+    function saveNewProject() {
+        const name = document.getElementById('new-proj-name').value;
+        const overlay = document.getElementById('new-proj-overlay').value;
+        if(!name) return;
+        const id = name.toLowerCase().replace(/\s+/g, '-');
+        myProjects.push({ id, name: name.toUpperCase(), overlay, folder: "/" + name.replace(/\s+/g, '') });
+        localStorage.setItem('my_projects', JSON.stringify(myProjects));
+        renderProjects(); select.value = id; loadProject(id); toggleProjectModal();
     }
 
-    // INIT
-    if(dbxToken) {
-        startCamera(); // Starts immediately to help persistence
-        renderProjects();
-    }
+    // Boot
+    if(dbxToken) { startCamera(); renderProjects(); }
     if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
 </script>
 </body>
