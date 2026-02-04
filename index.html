@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CAPSULE v0.5.2</title>
+    <title>CAPSULE v0.5.3</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="data:,">
     
@@ -61,23 +61,20 @@
             z-index: 10; opacity: 0; pointer-events: none; filter: grayscale(100%);
         }
 
-        /* PREVIEW LAYER (The Freeze Frame) */
         #preview-layer {
             position: absolute; width: 100%; height: 100%; object-fit: cover;
             z-index: 25; display: none; background: #000;
         }
 
-        /* ASCII FLASH LAYER */
         #ascii-canvas {
             position: absolute; width: 100%; height: 100%; object-fit: contain;
             z-index: 30; pointer-events: none; display: none; background: black;
         }
         
-        /* 4:5 MASK & OVERLAYS */
         .mask-container {
             position: relative; z-index: 20; pointer-events: none;
             width: 100%; max-width: 600px; aspect-ratio: 4/5;
-            box-shadow: 0 0 0 9999px rgba(0,0,0,0.9); /* Darker dim */
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.9);
             border: 1px solid rgba(255,255,255,0.2);
             display: flex; justify-content: center; align-items: center;
         }
@@ -93,13 +90,12 @@
             background-size: 33.3% 33.3%;
         }
 
-        /* GYRO LEVELER */
         #gyro-line {
             position: absolute; top: 50%; left: 15%; right: 15%; height: 1px;
-            background: rgba(255,255,255,0.4); z-index: 22;
+            background: rgba(255,255,255,0.6); z-index: 22;
             transform-origin: center; display: none; transition: transform 0.1s;
         }
-        #gyro-line.level { background: #fff; height: 2px; box-shadow: 0 0 4px #fff; }
+        #gyro-line.level { background: #fff; height: 3px; box-shadow: 0 0 6px #fff; }
 
         /* --- CONTROLS --- */
         .controls { 
@@ -123,8 +119,6 @@
 
         .status-bar { display: flex; justify-content: space-between; font-family: var(--font-body); color: #555; font-size: 10px; margin-top: 5px; }
         
-        .version-lbl { position: fixed; bottom: 4px; width: 100%; text-align: center; color: #222; font-size: 9px; pointer-events: none; z-index: 60; font-family: var(--font-body); }
-
         /* MODALS */
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
         .modal-box { width: 100%; max-width: 300px; border: 1px solid white; padding: 25px; background: black; display: flex; flex-direction: column; gap: 20px; }
@@ -169,7 +163,7 @@
         <button onclick="toggleProjectModal()" style="background:none; border:none; color:white; font-size:18px;">+</button>
     </div>
     <div class="header-right">
-        <button onclick="requestGyro()" class="text-btn" id="btn-gyro">( LVL )</button>
+        <button onclick="toggleGyro()" class="text-btn" id="btn-gyro">( LVL )</button>
         <button onclick="syncProjects()" class="text-btn" id="btn-sync">( SYNC )</button>
     </div>
 </header>
@@ -177,7 +171,8 @@
 <div class="viewport">
     <video id="video" autoplay playsinline></video>
     <img id="onion-layer" />
-    <img id="preview-layer" /> <canvas id="ascii-canvas"></canvas>
+    <img id="preview-layer" />
+    <canvas id="ascii-canvas"></canvas>
     
     <div class="mask-container">
         <div id="overlay-container" class="overlay-layer"></div>
@@ -204,11 +199,9 @@
 
     <div class="status-bar">
         <span id="streak-display">STRK: 00</span>
-        <span id="status-msg">READY</span>
+        <span id="status-msg">v0.5.3</span>
     </div>
 </div>
-
-<div class="version-lbl">v0.5.2</div>
 
 <canvas id="canvas"></canvas>
 <canvas id="small-canvas"></canvas>
@@ -224,7 +217,7 @@
     ];
     let myProjects = JSON.parse(localStorage.getItem('my_projects')) || defaultProjects;
 
-    // --- 2. CAMERA & GYRO ---
+    // --- 2. CAMERA ---
     let currentStream = null;
     let facingMode = "user";
     const video = document.getElementById('video');
@@ -243,50 +236,57 @@
     }
     function flipCamera() { startCamera(facingMode === "user" ? "environment" : "user"); }
 
-    // FIXED GYRO LOGIC
-    function requestGyro() {
+    // --- 3. GYRO TOGGLE ---
+    let isGyroOn = false;
+    function toggleGyro() {
         const btn = document.getElementById('btn-gyro');
-        // iOS requires permission request
-        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-            DeviceOrientationEvent.requestPermission()
-                .then(state => {
+        const line = document.getElementById('gyro-line');
+        
+        if (isGyroOn) {
+            // Turn Off
+            window.removeEventListener('deviceorientation', handleOrientation);
+            line.style.display = 'none';
+            btn.classList.remove('active');
+            isGyroOn = false;
+        } else {
+            // Turn On
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission().then(state => {
                     if (state === 'granted') {
                         window.addEventListener('deviceorientation', handleOrientation);
-                        document.getElementById('gyro-line').style.display = 'block';
+                        line.style.display = 'block';
                         btn.classList.add('active');
-                    } else { alert("Permission Denied"); }
-                })
-                .catch(console.error);
-        } else {
-            // Android / Non-iOS
-            window.addEventListener('deviceorientation', handleOrientation);
-            document.getElementById('gyro-line').style.display = 'block';
-            btn.classList.add('active');
+                        isGyroOn = true;
+                    }
+                });
+            } else {
+                window.addEventListener('deviceorientation', handleOrientation);
+                line.style.display = 'block';
+                btn.classList.add('active');
+                isGyroOn = true;
+            }
         }
     }
 
     function handleOrientation(e) {
         const line = document.getElementById('gyro-line');
-        // Gamma is standard left/right tilt in portrait
         let tilt = e.gamma; 
-        
-        // Rotate the line
         line.style.transform = `rotate(${tilt}deg)`;
-        
-        // Visual feedback for "Level"
-        if (tilt > -3 && tilt < 3) {
-            line.classList.add('level');
-        } else {
-            line.classList.remove('level');
-        }
+        if (tilt > -3 && tilt < 3) line.classList.add('level'); else line.classList.remove('level');
     }
 
-    // --- 3. ASCII & CAPTURE ---
+    // --- 4. ASCII ENGINE (Ratio Fix) ---
     const asciiChars = "@%#*+=-:. "; 
     
     function generateAscii(sourceCanvas) {
         const small = document.getElementById('small-canvas');
-        const w = 60; const h = 75; // 4:5ish ratio
+        // New Ratio Logic: 
+        // Font is tall (~1:2 ratio). To get square pixels, we need fewer vertical samples.
+        // We want output 4:5.
+        // Let's sample wider than we do tall.
+        const w = 100; 
+        const h = 55; // Sampling ratio ~1.8 (counters the font height)
+        
         small.width = w; small.height = h;
         const ctx = small.getContext('2d');
         ctx.drawImage(sourceCanvas, 0, 0, w, h);
@@ -305,20 +305,23 @@
 
     function drawAsciiToCanvas(str) {
         const c = document.getElementById('ascii-canvas');
-        c.width = 800; c.height = 1000;
+        // Output resolution 4:5 (High Res)
+        c.width = 1000; c.height = 1250;
         const ctx = c.getContext('2d');
         ctx.fillStyle = "black"; ctx.fillRect(0,0,c.width,c.height);
-        ctx.fillStyle = "white"; ctx.font = "14px monospace";
-        str.split('\n').forEach((line, i) => ctx.fillText(line, 20, 20 + (i*12)));
+        ctx.fillStyle = "white"; ctx.font = "18px monospace"; // Monospace is key
+        // Draw loop
+        str.split('\n').forEach((line, i) => ctx.fillText(line, 20, 30 + (i*18)));
         return c;
     }
 
-    // CAPTURE LOGIC (Fixed Freeze Frame)
+    // --- 5. CAPTURE ---
     const canvas = document.getElementById('canvas'); 
     let currentBlob = null;
     let asciiBlob = null;
 
     document.getElementById('snap-btn').addEventListener('click', () => {
+        // Crop Logic
         const vidW = video.videoWidth;
         const targetW = vidW;
         const targetH = vidW * 1.25; 
@@ -329,23 +332,25 @@
         if(facingMode === "user") { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
         ctx.drawImage(video, 0, startY, targetW, targetH, 0, 0, targetW, targetH);
         
-        // 1. ASCII Effect
+        // ASCII
         const str = generateAscii(canvas);
         const asciiCan = drawAsciiToCanvas(str);
         const asciiEl = document.getElementById('ascii-canvas');
+        
+        // Flash Effect
         asciiEl.style.display = 'block';
         setTimeout(() => asciiEl.style.display = 'none', 800);
         
-        // 2. Show Freeze Frame (Preview)
+        // Freeze Preview
         const preview = document.getElementById('preview-layer');
         preview.src = canvas.toDataURL('image/jpeg');
         preview.style.display = 'block';
 
-        // 3. Prep Blobs
+        // Blobs
         canvas.toBlob(b => currentBlob = b, 'image/jpeg', 0.95);
         asciiCan.toBlob(b => asciiBlob = b, 'image/jpeg', 0.80);
         
-        // 4. UI Switch
+        // UI
         document.getElementById('cam-controls').classList.add('hidden');
         document.getElementById('review-panel').classList.remove('hidden');
     });
@@ -357,7 +362,7 @@
         currentBlob = null; asciiBlob = null;
     }
 
-    // --- 4. DATA, SYNC & UPLOAD ---
+    // --- 6. DATA & SYNC ---
     const select = document.getElementById('project-select');
     let db;
     const DB_REQ = indexedDB.open("CapsuleSys", 1);
@@ -386,10 +391,11 @@
     }
     select.addEventListener('change', (e) => loadProject(e.target.value));
 
-    // FIXED SYNC FUNCTION
+    // SYNC (No Alert)
     async function syncProjects() {
-        const btn = document.getElementById('btn-sync');
-        btn.innerText = "( ... )";
+        const status = document.getElementById('status-msg');
+        status.innerText = "( SYNCING )";
+        status.style.color = "white";
         
         try {
             const res = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
@@ -399,23 +405,16 @@
             });
             
             const data = await res.json();
-            if(data.error) throw new Error(data.error_summary);
+            if(data.error) throw new Error("API Err");
 
             const folders = data.entries.filter(e => e['.tag'] === 'folder');
             let added = 0;
             
             folders.forEach(f => {
-                // Check if folder is already a project
                 const exists = myProjects.find(p => p.folder === "/" + f.name || p.folder === f.name);
                 if (!exists) {
                     const id = f.name.toLowerCase().replace(/\s+/g, '-');
-                    myProjects.push({
-                        id: id,
-                        name: f.name.toUpperCase(),
-                        overlay: "guide-none",
-                        folder: "/" + f.name,
-                        streak: 0
-                    });
+                    myProjects.push({ id, name: f.name.toUpperCase(), overlay: "guide-none", folder: "/" + f.name, streak: 0 });
                     added++;
                 }
             });
@@ -423,22 +422,22 @@
             if(added > 0) {
                 localStorage.setItem('my_projects', JSON.stringify(myProjects));
                 renderProjects();
-                alert(`SYNC: Found ${added} projects.`);
+                status.innerText = `( +${added} )`;
             } else {
-                alert("SYNC: Up to date.");
+                status.innerText = "( OK )";
             }
-            btn.innerText = "( OK )"; setTimeout(() => btn.innerText = "( SYNC )", 2000);
+            setTimeout(() => { status.innerText = "v0.5.3"; status.style.color = "#555"; }, 2000);
 
         } catch (e) {
-            alert("SYNC ERROR: " + e.message);
-            btn.innerText = "( ERR )";
+            status.innerText = "( ERR )";
+            status.style.color = "red";
         }
     }
 
     async function uploadPhoto() {
         if (!currentBlob) return;
         const status = document.getElementById('status-msg');
-        status.innerText = "UPLOADING...";
+        status.innerText = "UPLOADING..."; status.style.color = "white";
         
         const pid = select.value;
         const proj = myProjects.find(p => p.id === pid);
@@ -448,7 +447,6 @@
         try {
             db.transaction(['ghosts'], 'readwrite').objectStore('ghosts').put({ id: pid, blob: currentBlob });
             
-            // Streak
             if(proj.lastDate !== dateStr) {
                 proj.streak = (proj.streak || 0) + 1;
                 proj.lastDate = dateStr;
@@ -460,10 +458,11 @@
             const meta = { time: now, project: pid, cam: facingMode };
             await sendToDropbox(new Blob([JSON.stringify(meta)],{type:'application/json'}), `${proj.folder}/${pid}-${dateStr}.json`);
 
-            retryPhoto(); status.innerText = "SAVED"; 
-            setTimeout(() => { loadProject(pid); status.innerText = "READY"; }, 1500);
+            retryPhoto(); 
+            status.innerText = "SAVED"; 
+            setTimeout(() => { loadProject(pid); status.innerText = "v0.5.3"; status.style.color = "#555"; }, 1500);
 
-        } catch(e) { alert(e.message); status.innerText = "ERROR"; }
+        } catch(e) { status.innerText = "ERR"; status.style.color = "red"; }
     }
 
     async function sendToDropbox(f, p) {
@@ -472,7 +471,7 @@
             headers: { 'Authorization': 'Bearer '+localStorage.getItem('dbx_token'), 'Content-Type': 'application/octet-stream', 'Dropbox-API-Arg': JSON.stringify({ path: p, mode: 'add', autorename: true }) }, 
             body: f 
         });
-        if(!r.ok) throw new Error(await r.text());
+        if(!r.ok) throw new Error("Upload Err");
     }
 
     // Utils
