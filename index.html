@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CAPSULE v0.5.3</title>
+    <title>CAPSULE v0.5.4</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="data:,">
     
@@ -199,7 +199,7 @@
 
     <div class="status-bar">
         <span id="streak-display">STRK: 00</span>
-        <span id="status-msg">v0.5.3</span>
+        <span id="status-msg">v0.5.4</span>
     </div>
 </div>
 
@@ -241,52 +241,31 @@
     function toggleGyro() {
         const btn = document.getElementById('btn-gyro');
         const line = document.getElementById('gyro-line');
-        
         if (isGyroOn) {
-            // Turn Off
             window.removeEventListener('deviceorientation', handleOrientation);
-            line.style.display = 'none';
-            btn.classList.remove('active');
-            isGyroOn = false;
+            line.style.display = 'none'; btn.classList.remove('active'); isGyroOn = false;
         } else {
-            // Turn On
-            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-                DeviceOrientationEvent.requestPermission().then(state => {
-                    if (state === 'granted') {
-                        window.addEventListener('deviceorientation', handleOrientation);
-                        line.style.display = 'block';
-                        btn.classList.add('active');
-                        isGyroOn = true;
-                    }
-                });
-            } else {
-                window.addEventListener('deviceorientation', handleOrientation);
-                line.style.display = 'block';
-                btn.classList.add('active');
-                isGyroOn = true;
-            }
+            const func = (typeof DeviceOrientationEvent !== 'undefined' && DeviceOrientationEvent.requestPermission) 
+                ? DeviceOrientationEvent.requestPermission : () => Promise.resolve('granted');
+            func().then(state => {
+                if (state === 'granted') {
+                    window.addEventListener('deviceorientation', handleOrientation);
+                    line.style.display = 'block'; btn.classList.add('active'); isGyroOn = true;
+                }
+            });
         }
     }
-
     function handleOrientation(e) {
         const line = document.getElementById('gyro-line');
-        let tilt = e.gamma; 
-        line.style.transform = `rotate(${tilt}deg)`;
-        if (tilt > -3 && tilt < 3) line.classList.add('level'); else line.classList.remove('level');
+        line.style.transform = `rotate(${e.gamma}deg)`;
+        if (e.gamma > -3 && e.gamma < 3) line.classList.add('level'); else line.classList.remove('level');
     }
 
-    // --- 4. ASCII ENGINE (Ratio Fix) ---
+    // --- 4. ASCII ENGINE ---
     const asciiChars = "@%#*+=-:. "; 
-    
     function generateAscii(sourceCanvas) {
         const small = document.getElementById('small-canvas');
-        // New Ratio Logic: 
-        // Font is tall (~1:2 ratio). To get square pixels, we need fewer vertical samples.
-        // We want output 4:5.
-        // Let's sample wider than we do tall.
-        const w = 100; 
-        const h = 55; // Sampling ratio ~1.8 (counters the font height)
-        
+        const w = 100; const h = 55;
         small.width = w; small.height = h;
         const ctx = small.getContext('2d');
         ctx.drawImage(sourceCanvas, 0, 0, w, h);
@@ -302,15 +281,12 @@
         }
         return str;
     }
-
     function drawAsciiToCanvas(str) {
         const c = document.getElementById('ascii-canvas');
-        // Output resolution 4:5 (High Res)
         c.width = 1000; c.height = 1250;
         const ctx = c.getContext('2d');
         ctx.fillStyle = "black"; ctx.fillRect(0,0,c.width,c.height);
-        ctx.fillStyle = "white"; ctx.font = "18px monospace"; // Monospace is key
-        // Draw loop
+        ctx.fillStyle = "white"; ctx.font = "18px monospace";
         str.split('\n').forEach((line, i) => ctx.fillText(line, 20, 30 + (i*18)));
         return c;
     }
@@ -321,36 +297,27 @@
     let asciiBlob = null;
 
     document.getElementById('snap-btn').addEventListener('click', () => {
-        // Crop Logic
         const vidW = video.videoWidth;
         const targetW = vidW;
         const targetH = vidW * 1.25; 
         const startY = (video.videoHeight - targetH) / 2;
-
         canvas.width = targetW; canvas.height = targetH;
         const ctx = canvas.getContext('2d');
         if(facingMode === "user") { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
         ctx.drawImage(video, 0, startY, targetW, targetH, 0, 0, targetW, targetH);
         
-        // ASCII
         const str = generateAscii(canvas);
         const asciiCan = drawAsciiToCanvas(str);
         const asciiEl = document.getElementById('ascii-canvas');
-        
-        // Flash Effect
         asciiEl.style.display = 'block';
         setTimeout(() => asciiEl.style.display = 'none', 800);
         
-        // Freeze Preview
         const preview = document.getElementById('preview-layer');
         preview.src = canvas.toDataURL('image/jpeg');
         preview.style.display = 'block';
 
-        // Blobs
         canvas.toBlob(b => currentBlob = b, 'image/jpeg', 0.95);
         asciiCan.toBlob(b => asciiBlob = b, 'image/jpeg', 0.80);
-        
-        // UI
         document.getElementById('cam-controls').classList.add('hidden');
         document.getElementById('review-panel').classList.remove('hidden');
     });
@@ -362,7 +329,7 @@
         currentBlob = null; asciiBlob = null;
     }
 
-    // --- 6. DATA & SYNC ---
+    // --- 6. DATA & SYNC (MIRROR MODE) ---
     const select = document.getElementById('project-select');
     let db;
     const DB_REQ = indexedDB.open("CapsuleSys", 1);
@@ -375,7 +342,11 @@
             const opt = document.createElement('option');
             opt.value = p.id; opt.innerText = p.name; select.appendChild(opt);
         });
-        loadProject(myProjects[0].id);
+        // Handle deletion case (if current project is gone)
+        if (!myProjects.find(p => p.id === select.value)) {
+            if (myProjects.length > 0) select.value = myProjects[0].id;
+        }
+        loadProject(select.value);
     }
     
     function loadProject(id) {
@@ -391,11 +362,9 @@
     }
     select.addEventListener('change', (e) => loadProject(e.target.value));
 
-    // SYNC (No Alert)
     async function syncProjects() {
         const status = document.getElementById('status-msg');
-        status.innerText = "( SYNCING )";
-        status.style.color = "white";
+        status.innerText = "( SYNCING )"; status.style.color = "white";
         
         try {
             const res = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
@@ -403,15 +372,17 @@
                 headers: { 'Authorization': 'Bearer ' + dbxToken, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ path: "", recursive: false })
             });
-            
             const data = await res.json();
             if(data.error) throw new Error("API Err");
 
-            const folders = data.entries.filter(e => e['.tag'] === 'folder');
-            let added = 0;
+            const remoteFolders = data.entries.filter(e => e['.tag'] === 'folder');
+            const remotePaths = remoteFolders.map(f => "/" + f.name.toLowerCase());
             
-            folders.forEach(f => {
-                const exists = myProjects.find(p => p.folder === "/" + f.name || p.folder === f.name);
+            // 1. ADD NEW
+            let added = 0;
+            remoteFolders.forEach(f => {
+                const pName = "/" + f.name;
+                const exists = myProjects.find(p => p.folder.toLowerCase() === pName.toLowerCase());
                 if (!exists) {
                     const id = f.name.toLowerCase().replace(/\s+/g, '-');
                     myProjects.push({ id, name: f.name.toUpperCase(), overlay: "guide-none", folder: "/" + f.name, streak: 0 });
@@ -419,26 +390,30 @@
                 }
             });
 
-            if(added > 0) {
+            // 2. PRUNE DELETED (Mirror Mode)
+            const preCount = myProjects.length;
+            myProjects = myProjects.filter(p => {
+                // Keep it ONLY if it exists in Remote Paths
+                return remotePaths.includes(p.folder.toLowerCase());
+            });
+            const removed = preCount - myProjects.length;
+
+            if(added > 0 || removed > 0) {
                 localStorage.setItem('my_projects', JSON.stringify(myProjects));
                 renderProjects();
-                status.innerText = `( +${added} )`;
+                status.innerText = `( +${added} / -${removed} )`;
             } else {
                 status.innerText = "( OK )";
             }
-            setTimeout(() => { status.innerText = "v0.5.3"; status.style.color = "#555"; }, 2000);
+            setTimeout(() => { status.innerText = "v0.5.4"; status.style.color = "#555"; }, 2000);
 
-        } catch (e) {
-            status.innerText = "( ERR )";
-            status.style.color = "red";
-        }
+        } catch (e) { status.innerText = "( ERR )"; status.style.color = "red"; }
     }
 
     async function uploadPhoto() {
         if (!currentBlob) return;
         const status = document.getElementById('status-msg');
         status.innerText = "UPLOADING..."; status.style.color = "white";
-        
         const pid = select.value;
         const proj = myProjects.find(p => p.id === pid);
         const now = new Date();
@@ -446,25 +421,19 @@
 
         try {
             db.transaction(['ghosts'], 'readwrite').objectStore('ghosts').put({ id: pid, blob: currentBlob });
-            
             if(proj.lastDate !== dateStr) {
                 proj.streak = (proj.streak || 0) + 1;
                 proj.lastDate = dateStr;
                 localStorage.setItem('my_projects', JSON.stringify(myProjects));
             }
-
             await sendToDropbox(currentBlob, `${proj.folder}/${pid}-${dateStr}.jpg`);
             await sendToDropbox(asciiBlob, `${proj.folder}/${pid}-${dateStr}-ascii.jpg`);
             const meta = { time: now, project: pid, cam: facingMode };
             await sendToDropbox(new Blob([JSON.stringify(meta)],{type:'application/json'}), `${proj.folder}/${pid}-${dateStr}.json`);
-
-            retryPhoto(); 
-            status.innerText = "SAVED"; 
-            setTimeout(() => { loadProject(pid); status.innerText = "v0.5.3"; status.style.color = "#555"; }, 1500);
-
+            retryPhoto(); status.innerText = "SAVED"; 
+            setTimeout(() => { loadProject(pid); status.innerText = "v0.5.4"; status.style.color = "#555"; }, 1500);
         } catch(e) { status.innerText = "ERR"; status.style.color = "red"; }
     }
-
     async function sendToDropbox(f, p) {
         const r = await fetch('https://content.dropboxapi.com/2/files/upload', { 
             method: 'POST', 
@@ -474,7 +443,6 @@
         if(!r.ok) throw new Error("Upload Err");
     }
 
-    // Utils
     function toggleProjectModal() { document.getElementById('project-modal').classList.toggle('hidden'); }
     function saveToken() { const t = document.getElementById('token-input').value.trim(); if(t) { localStorage.setItem('dbx_token', t); location.reload(); } }
     function saveNewProject() {
