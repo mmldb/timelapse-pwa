@@ -3,37 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Capsule v2</title>
+    <title>Capsule</title>
     <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="data:,"> 
     <style>
         /* --- Dark UI Styling --- */
         body { margin: 0; background: #000; color: white; font-family: -apple-system, BlinkMacSystemFont, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         
         /* Header */
-        header { padding: 15px; position: absolute; top: 0; width: 100%; z-index: 20; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); pointer-events: none; }
-        header > * { pointer-events: auto; } /* Re-enable clicks on buttons */
+        header { padding: 10px 15px; position: absolute; top: 0; width: 100%; z-index: 20; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); pointer-events: none; }
+        header > * { pointer-events: auto; }
         
-        select { background: rgba(50,50,50,0.9); color: white; border: none; padding: 10px; border-radius: 8px; font-size: 16px; backdrop-filter: blur(5px); max-width: 60%; }
-        .icon-btn { background: rgba(50,50,50,0.9); border: none; color: white; width: 40px; height: 40px; border-radius: 50%; font-size: 20px; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+        select { background: rgba(50,50,50,0.9); color: white; border: none; padding: 8px; border-radius: 8px; font-size: 14px; backdrop-filter: blur(5px); max-width: 45%; }
+        .icon-btn { background: rgba(50,50,50,0.9); border: none; color: white; width: 35px; height: 35px; border-radius: 50%; font-size: 20px; display: flex; justify-content: center; align-items: center; cursor: pointer; }
         
+        /* Version Label */
+        .version-tag { font-size: 10px; color: #555; background: #111; padding: 4px 8px; border-radius: 10px; opacity: 0.8; }
+
         /* Camera & Overlays */
         .viewport { flex-grow: 1; position: relative; display: flex; justify-content: center; align-items: center; background: #000; }
         video, canvas { position: absolute; width: 100%; height: 100%; object-fit: cover; }
         canvas { z-index: 5; display: none; }
         
         .overlay-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; opacity: 0.5; }
-        
-        /* Overlays CSS */
         .guide-face { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); width: 200px; height: 280px; border: 2px dashed #0ff; border-radius: 50%; box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); }
         .guide-thirds { width: 100%; height: 100%; background: linear-gradient(to right, transparent 33%, rgba(0,255,255,0.3) 33%, rgba(0,255,255,0.3) 33.5%, transparent 33.5%, transparent 66%, rgba(0,255,255,0.3) 66%, rgba(0,255,255,0.3) 66.5%, transparent 66.5%), linear-gradient(to bottom, transparent 33%, rgba(0,255,255,0.3) 33%, rgba(0,255,255,0.3) 33.5%, transparent 33.5%, transparent 66%, rgba(0,255,255,0.3) 66%, rgba(0,255,255,0.3) 66.5%, transparent 66.5%); }
-        .guide-none { /* No overlay */ }
 
         /* Controls */
         .controls { padding: 40px; background: #000; display: flex; justify-content: center; align-items: center; z-index: 20; min-height: 120px; padding-bottom: 50px; position: relative; }
-        
         .btn-capture { width: 80px; height: 80px; border-radius: 50%; background: white; border: 4px solid #444; }
         .btn-flip { position: absolute; right: 30px; background: #333; color: white; border: none; padding: 15px; border-radius: 50%; font-size: 24px; }
-        
         .review-panel { display: none; gap: 20px; width: 100%; justify-content: center; }
         .btn { padding: 15px 30px; border-radius: 30px; border: none; font-weight: bold; font-size: 18px; width: 40%; }
         .btn-retry { background: #333; color: white; }
@@ -41,7 +40,7 @@
 
         /* Modals */
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
-        .modal h2 { margin-bottom: 20px; }
+        .modal h2 { margin-bottom: 20px; color: #fff; }
         .modal input, .modal select { padding: 15px; width: 100%; margin: 10px 0; font-size: 16px; background: #222; color: white; border: 1px solid #444; border-radius: 8px; }
         .hidden { display: none !important; }
         .close-btn { margin-top: 20px; background: transparent; color: #aaa; border: none; font-size: 14px; text-decoration: underline; }
@@ -51,14 +50,14 @@
 
 <div id="setup-modal" class="modal hidden">
     <h2>Welcome</h2>
-    <p>Paste Dropbox Token:</p>
+    <p style="color:#aaa;">Paste Dropbox Token:</p>
     <input type="text" id="token-input" placeholder="sl.B5...">
     <button class="btn btn-upload" onclick="saveToken()">Save</button>
 </div>
 
 <div id="project-modal" class="modal hidden">
     <h2>New Project</h2>
-    <input type="text" id="new-proj-name" placeholder="Project Name (e.g., Gym)">
+    <input type="text" id="new-proj-name" placeholder="Name (e.g., Gym)">
     <select id="new-proj-overlay">
         <option value="guide-face">Face Overlay</option>
         <option value="guide-thirds">Landscape Grid</option>
@@ -73,7 +72,10 @@
         <select id="project-select"></select>
         <button class="icon-btn" onclick="toggleProjectModal()">+</button>
     </div>
-    <div id="status-msg" style="font-size:12px; color:#aaa; margin-left:10px;">Ready</div>
+    
+    <div class="version-tag">v0.0.1</div>
+    
+    <div id="status-msg" style="font-size:12px; color:#aaa; width:40px; text-align:right;">Ready</div>
 </header>
 
 <div class="viewport">
@@ -87,7 +89,6 @@
         <button id="snap-btn" class="btn-capture"></button>
         <button id="flip-btn" class="btn-flip" onclick="flipCamera()">↻</button>
     </div>
-
     <div id="review-panel" class="review-panel">
         <button class="btn btn-retry" onclick="retryPhoto()">Retake</button>
         <button class="btn btn-upload" onclick="uploadPhoto()">Save</button>
@@ -99,25 +100,25 @@
     let dbxToken = localStorage.getItem('dbx_token');
     if (!dbxToken) document.getElementById('setup-modal').classList.remove('hidden');
 
-    // Default Projects
     const defaultProjects = [
         { id: "face-daily", name: "Face Daily", overlay: "guide-face", folder: "/FaceProject", cam: "user" },
         { id: "landscape", name: "Landscape", overlay: "guide-thirds", folder: "/Landscape", cam: "environment" }
     ];
-
-    // Load Projects from LocalStorage or use Default
     let myProjects = JSON.parse(localStorage.getItem('my_projects')) || defaultProjects;
 
     // --- 2. CAMERA LOGIC ---
     let currentStream = null;
-    let facingMode = "user"; // "user" (front) or "environment" (back)
+    let facingMode = "user";
     const video = document.getElementById('video');
     
-    async function startCamera(mode = "user") {
+    async function startCamera(mode) {
+        if(!mode) mode = facingMode; // Use current if undefined
+        
         if (currentStream) {
             currentStream.getTracks().forEach(track => track.stop());
         }
         facingMode = mode;
+        
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ 
                 video: { facingMode: mode, width: { ideal: 1920 }, height: { ideal: 1080 } } 
@@ -125,13 +126,13 @@
             video.srcObject = stream;
             currentStream = stream;
         } catch (e) {
-            alert("Camera Error: " + e.message);
+            console.error("Camera access error:", e);
+            // Don't alert immediately, helps with permission persistence
         }
     }
 
     function flipCamera() {
-        const newMode = facingMode === "user" ? "environment" : "user";
-        startCamera(newMode);
+        startCamera(facingMode === "user" ? "environment" : "user");
     }
 
     // --- 3. PROJECT MANAGER ---
@@ -145,48 +146,32 @@
             opt.innerText = p.name;
             select.appendChild(opt);
         });
-        loadProject(myProjects[0].id); // Load first one
+        loadProject(myProjects[0].id);
     }
 
     function loadProject(id) {
         const proj = myProjects.find(p => p.id === id);
         if(!proj) return;
-
-        // Set Overlay
         document.getElementById('overlay-container').className = "overlay-layer " + proj.overlay; 
-        
-        // Auto-switch camera based on project preference?
-        // Let's stick to manual flip for now to avoid jarring switches, 
-        // unless you want it strictly automatic.
-        // startCamera(proj.cam); 
     }
 
     select.addEventListener('change', (e) => loadProject(e.target.value));
 
-    // Create New Project
-    function toggleProjectModal() {
-        document.getElementById('project-modal').classList.toggle('hidden');
-    }
+    function toggleProjectModal() { document.getElementById('project-modal').classList.toggle('hidden'); }
 
     function saveNewProject() {
         const name = document.getElementById('new-proj-name').value;
         const overlay = document.getElementById('new-proj-overlay').value;
         if(!name) return;
-
         const id = name.toLowerCase().replace(/\s+/g, '-');
         const newProj = {
-            id: id,
-            name: name,
-            overlay: overlay,
-            folder: "/" + name.replace(/\s+/g, ''), // e.g. /GymProgress
-            cam: "environment" // Default new ones to back cam
+            id: id, name: name, overlay: overlay,
+            folder: "/" + name.replace(/\s+/g, ''), cam: "environment"
         };
-
         myProjects.push(newProj);
-        localStorage.setItem('my_projects', JSON.stringify(myProjects)); // Save forever
-        
-        renderProjects(); // Refresh list
-        select.value = id; // Select new one
+        localStorage.setItem('my_projects', JSON.stringify(myProjects));
+        renderProjects();
+        select.value = id;
         loadProject(id);
         toggleProjectModal();
     }
@@ -199,17 +184,10 @@
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         const ctx = canvas.getContext('2d');
-        
-        // Fix for mirroring: Front camera usually needs mirroring on canvas to look natural
-        if(facingMode === "user") {
-            ctx.translate(canvas.width, 0);
-            ctx.scale(-1, 1);
-        }
-        
+        if(facingMode === "user") { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); } // Mirror fix
         ctx.drawImage(video, 0, 0);
-        
         canvas.style.display = 'block'; 
-        document.getElementById('cam-controls').style.display = 'none'; // Hide snap & flip
+        document.getElementById('cam-controls').style.display = 'none';
         document.getElementById('review-panel').style.display = 'flex';
         canvas.toBlob(b => currentBlob = b, 'image/jpeg', 0.95);
     });
@@ -224,30 +202,25 @@
     async function uploadPhoto() {
         if (!currentBlob) return;
         const status = document.getElementById('status-msg');
-        status.innerText = "Uploading...";
-        
+        status.innerText = "Upload..";
         const pid = select.value;
         const proj = myProjects.find(p => p.id === pid);
         const today = new Date().toISOString().split('T')[0];
 
         try {
-            // Weather
-            let temp = "Unknown";
+            // Weather (Silent fail if no permission)
+            let temp = "N/A";
             try {
-                const pos = await new Promise((r, j) => navigator.geolocation.getCurrentPosition(r, j, {timeout:3000}));
+                const pos = await new Promise((r, j) => navigator.geolocation.getCurrentPosition(r, j, {timeout:2000}));
                 const w = await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&current_weather=true`)).json();
                 temp = w.current_weather.temperature + "C";
             } catch(e){}
 
-            // Upload Image
             await sendToDropbox(currentBlob, `${proj.folder}/${pid}-${today}.jpg`);
-            
-            // Upload Meta
             const meta = { date: today, project: pid, temp: temp, cam: facingMode };
-            const jsonBlob = new Blob([JSON.stringify(meta)],{type:'application/json'});
-            await sendToDropbox(jsonBlob, `${proj.folder}/${pid}-${today}.json`);
+            await sendToDropbox(new Blob([JSON.stringify(meta)],{type:'application/json'}), `${proj.folder}/${pid}-${today}.json`);
 
-            alert("Saved to " + proj.folder); 
+            alert(`Saved!`); 
             retryPhoto(); 
             status.innerText = "Ready";
         } catch(e) { 
@@ -259,11 +232,7 @@
     async function sendToDropbox(f, p) {
         const r = await fetch('https://content.dropboxapi.com/2/files/upload', { 
             method: 'POST', 
-            headers: { 
-                'Authorization': 'Bearer '+localStorage.getItem('dbx_token'), 
-                'Content-Type': 'application/octet-stream', 
-                'Dropbox-API-Arg': JSON.stringify({ path: p, mode: 'add', autorename: true }) 
-            }, 
+            headers: { 'Authorization': 'Bearer '+localStorage.getItem('dbx_token'), 'Content-Type': 'application/octet-stream', 'Dropbox-API-Arg': JSON.stringify({ path: p, mode: 'add', autorename: true }) }, 
             body: f 
         });
         if(!r.ok) throw new Error(await r.text());
@@ -274,9 +243,9 @@
         if(t) { localStorage.setItem('dbx_token', t); location.reload(); }
     }
 
-    // Init
+    // INIT
     if(dbxToken) {
-        startCamera(); // Default to front
+        startCamera(); // Starts immediately to help persistence
         renderProjects();
     }
     if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
