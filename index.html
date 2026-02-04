@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Capsule</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        body { margin: 0; background: #000; color: white; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        header { padding: 15px; position: absolute; top: 0; width: 100%; z-index: 20; display: flex; justify-content: space-between; box-sizing: border-box; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); }
+        select { background: rgba(50,50,50,0.8); color: white; border: none; padding: 8px; border-radius: 8px; font-size: 16px; backdrop-filter: blur(5px); }
+        .viewport { flex-grow: 1; position: relative; display: flex; justify-content: center; align-items: center; background: #000; }
+        video, canvas { position: absolute; width: 100%; height: 100%; object-fit: cover; }
+        canvas { z-index: 5; display: none; }
+        .overlay-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; opacity: 0.6; }
+        .guide-face { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); width: 200px; height: 280px; border: 2px dashed #0ff; border-radius: 50%; box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); }
+        .controls { padding: 40px; background: #000; display: flex; justify-content: center; align-items: center; z-index: 20; min-height: 120px; padding-bottom: 50px; }
+        .btn-capture { width: 80px; height: 80px; border-radius: 50%; background: white; border: 4px solid #444; }
+        .review-panel { display: none; gap: 20px; width: 100%; justify-content: center; }
+        .btn { padding: 15px 30px; border-radius: 30px; border: none; font-weight: bold; font-size: 18px; width: 40%; }
+        .btn-retry { background: #333; color: white; }
+        .btn-upload { background: #007AFF; color: white; }
+        #setup-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
+        #setup-modal input { padding: 15px; width: 100%; margin: 20px 0; font-size: 16px; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+<div id="setup-modal" class="hidden">
+    <h2>Welcome</h2><p>Paste Dropbox Token:</p>
+    <input type="text" id="token-input" placeholder="sl.B5...">
+    <button class="btn btn-upload" onclick="saveToken()">Save</button>
+</div>
+<header>
+    <select id="project-select"><option value="face-daily">Face Project</option><option value="balcony-view">Landscape</option></select>
+    <div id="status-msg">Ready</div>
+</header>
+<div class="viewport">
+    <video id="video" autoplay playsinline></video><canvas id="canvas"></canvas>
+    <div id="overlay-container" class="overlay-layer"><div class="guide-face"></div></div>
+</div>
+<div class="controls">
+    <button id="snap-btn" class="btn-capture"></button>
+    <div id="review-panel" class="review-panel">
+        <button class="btn btn-retry" onclick="retryPhoto()">Retake</button>
+        <button class="btn btn-upload" onclick="uploadPhoto()">Save</button>
+    </div>
+</div>
+<script>
+    let dbxToken = localStorage.getItem('dbx_token');
+    if (!dbxToken) document.getElementById('setup-modal').classList.remove('hidden');
+    function saveToken() {
+        const t = document.getElementById('token-input').value.trim();
+        if(t) { localStorage.setItem('dbx_token', t); location.reload(); }
+    }
+    const PROJECTS = { "face-daily": { overlay: "guide-face", folder: "/FaceProject" }, "balcony-view": { overlay: "guide-thirds", folder: "/Landscape" } };
+    const video = document.getElementById('video'); const canvas = document.getElementById('canvas'); let currentBlob = null;
+    if(dbxToken) navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1920 }, height: { ideal: 1080 } } }).then(s => video.srcObject = s).catch(e => alert(e));
+    document.getElementById('snap-btn').addEventListener('click', () => {
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        canvas.style.display = 'block'; document.getElementById('snap-btn').style.display = 'none'; document.getElementById('review-panel').style.display = 'flex';
+        canvas.toBlob(b => currentBlob = b, 'image/jpeg', 0.95);
+    });
+    function retryPhoto() { canvas.style.display = 'none'; document.getElementById('snap-btn').style.display = 'block'; document.getElementById('review-panel').style.display = 'none'; currentBlob = null; }
+    async function uploadPhoto() {
+        if (!currentBlob) return;
+        document.getElementById('status-msg').innerText = "Uploading...";
+        const today = new Date().toISOString().split('T')[0];
+        const pid = document.getElementById('project-select').value;
+        const pconf = PROJECTS[pid];
+        try {
+            // Weather Fetch
+            let temp = "Unknown";
+            try {
+                const pos = await new Promise((r, j) => navigator.geolocation.getCurrentPosition(r, j, {timeout:3000}));
+                const w = await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&current_weather=true`)).json();
+                temp = w.current_weather.temperature + "C";
+            } catch(e){}
+            // Uploads
+            await sendToDropbox(currentBlob, `${pconf.folder}/${pid}-${today}.jpg`);
+            const meta = { date: today, project: pid, temp: temp };
+            await sendToDropbox(new Blob([JSON.stringify(meta)],{type:'application/json'}), `${pconf.folder}/${pid}-${today}.json`);
+            alert("Saved!"); retryPhoto(); document.getElementById('status-msg').innerText = "Ready";
+        } catch(e) { alert("Error: "+e.message); }
+    }
+    async function sendToDropbox(f, p) {
+        const r = await fetch('https://content.dropboxapi.com/2/files/upload', { method: 'POST', headers: { 'Authorization': 'Bearer '+localStorage.getItem('dbx_token'), 'Content-Type': 'application/octet-stream', 'Dropbox-API-Arg': JSON.stringify({ path: p, mode: 'add', autorename: true }) }, body: f });
+        if(!r.ok) throw new Error(await r.text());
+    }
+    if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
+</script>
+</body>
+</html>
