@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CAPSULE v0.5</title>
+    <title>CAPSULE v0.5.2</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="data:,">
     
     <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     
     <style>
-        /* --- MONOCHROME INDUSTRIAL THEME --- */
+        /* --- THEME: MONOCHROME INDUSTRIAL --- */
         :root {
             --bg: #000000;
             --fg: #ffffff;
@@ -29,52 +29,63 @@
 
         /* --- LAYOUT --- */
         header { 
-            padding: 15px; border-bottom: var(--border);
+            padding: 12px 15px; border-bottom: var(--border);
             display: flex; justify-content: space-between; align-items: center; 
-            background: rgba(0,0,0,0.9); z-index: 40;
+            background: rgba(0,0,0,0.95); z-index: 50; gap: 10px;
         }
         
-        select, input {
+        .header-left { display: flex; align-items: center; gap: 8px; flex-grow: 1; overflow: hidden; }
+        .app-title { font-family: var(--font-head); font-size: 18px; white-space: nowrap; flex-shrink: 0; }
+        
+        select {
             background: black; color: white;
-            border: 1px solid #333; border-radius: 0; 
-            padding: 8px 12px; font-family: var(--font-body); outline: none;
+            border: none; border-bottom: 1px solid #333; border-radius: 0; 
+            padding: 4px 0; font-family: var(--font-body); outline: none;
+            width: 100%; max-width: 120px; text-overflow: ellipsis;
         }
         
+        .header-right { display: flex; gap: 15px; flex-shrink: 0; }
+        .text-btn { background: none; border: none; color: #666; font-size: 11px; cursor: pointer; padding: 5px; font-family: var(--font-body); }
+        .text-btn.active { color: white; text-decoration: underline; }
+
         /* --- VIEWFINDER --- */
         .viewport { 
-            flex-grow: 1; position: relative; background: #000; 
+            flex-grow: 1; position: relative; background: #050505; 
             display: flex; justify-content: center; align-items: center; overflow: hidden;
         }
         
-        video { 
-            position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: 1;
-        }
+        video { position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
         
         #onion-layer { 
             position: absolute; width: 100%; height: 100%; object-fit: cover; 
             z-index: 10; opacity: 0; pointer-events: none; filter: grayscale(100%);
         }
 
+        /* PREVIEW LAYER (The Freeze Frame) */
+        #preview-layer {
+            position: absolute; width: 100%; height: 100%; object-fit: cover;
+            z-index: 25; display: none; background: #000;
+        }
+
         /* ASCII FLASH LAYER */
         #ascii-canvas {
             position: absolute; width: 100%; height: 100%; object-fit: contain;
-            z-index: 30; pointer-events: none; display: none;
-            background: black;
+            z-index: 30; pointer-events: none; display: none; background: black;
         }
         
         /* 4:5 MASK & OVERLAYS */
         .mask-container {
             position: relative; z-index: 20; pointer-events: none;
             width: 100%; max-width: 600px; aspect-ratio: 4/5;
-            box-shadow: 0 0 0 9999px rgba(0,0,0,0.85);
-            border: 1px solid rgba(255,255,255,0.3);
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.9); /* Darker dim */
+            border: 1px solid rgba(255,255,255,0.2);
             display: flex; justify-content: center; align-items: center;
         }
 
         .overlay-layer { width: 100%; height: 100%; position: relative; }
         .guide-face { 
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 180px; height: 260px; border: 1px dashed white; border-radius: 50%; opacity: 0.6;
+            position: absolute; top: 48%; left: 50%; transform: translate(-50%, -50%);
+            width: 190px; height: 270px; border: 1px dashed rgba(255,255,255,0.6); border-radius: 50%; 
         }
         .guide-thirds {
             width: 100%; height: 100%; opacity: 0.2;
@@ -84,35 +95,42 @@
 
         /* GYRO LEVELER */
         #gyro-line {
-            position: absolute; top: 50%; left: 10%; right: 10%; height: 1px;
-            background: rgba(255,255,255,0.3); z-index: 25;
+            position: absolute; top: 50%; left: 15%; right: 15%; height: 1px;
+            background: rgba(255,255,255,0.4); z-index: 22;
             transform-origin: center; display: none; transition: transform 0.1s;
         }
-        #gyro-line.level { background: #fff; height: 2px; box-shadow: 0 0 5px white; }
+        #gyro-line.level { background: #fff; height: 2px; box-shadow: 0 0 4px #fff; }
 
         /* --- CONTROLS --- */
         .controls { 
             padding: 20px; border-top: var(--border); background: var(--bg);
-            display: flex; flex-direction: column; gap: 12px; z-index: 40;
+            display: flex; flex-direction: column; gap: 15px; z-index: 50;
         }
 
-        button {
-            background: transparent; color: white; border: 1px solid #333; padding: 14px;
-            font-family: var(--font-head); font-size: 16px; text-transform: uppercase; cursor: pointer;
-            transition: all 0.1s;
+        button.ui-btn {
+            background: transparent; color: white; border: 1px solid #333; padding: 15px;
+            font-family: var(--font-body); font-weight: 700; font-size: 14px; 
+            text-transform: uppercase; cursor: pointer; transition: all 0.1s;
+            letter-spacing: 1px;
         }
-        button:active { background: white; color: black; border-color: white; }
-        button.primary { border-color: white; }
+        button.ui-btn:active { background: white; color: black; border-color: white; }
+        button.primary { border-color: #888; }
 
-        .slider-row { display: flex; align-items: center; gap: 10px; font-size: 11px; color: #888; }
+        .slider-row { display: flex; align-items: center; gap: 10px; font-size: 11px; color: #666; font-family: var(--font-body); }
         input[type=range] { -webkit-appearance: none; background: transparent; flex-grow: 1; }
         input[type=range]::-webkit-slider-runnable-track { height: 1px; background: #333; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; margin-top: -5px; height: 10px; width: 10px; background: white; border-radius: 50%; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; margin-top: -5px; height: 11px; width: 11px; background: white; border-radius: 50%; }
 
-        .status-bar { display: flex; justify-content: space-between; font-family: var(--font-head); color: #555; font-size: 12px; }
+        .status-bar { display: flex; justify-content: space-between; font-family: var(--font-body); color: #555; font-size: 10px; margin-top: 5px; }
         
+        .version-lbl { position: fixed; bottom: 4px; width: 100%; text-align: center; color: #222; font-size: 9px; pointer-events: none; z-index: 60; font-family: var(--font-body); }
+
+        /* MODALS */
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
-        .modal-box { width: 100%; max-width: 300px; border: 1px solid white; padding: 20px; background: black; display: flex; flex-direction: column; gap: 15px; }
+        .modal-box { width: 100%; max-width: 300px; border: 1px solid white; padding: 25px; background: black; display: flex; flex-direction: column; gap: 20px; }
+        .modal h2 { margin: 0; font-family: var(--font-head); font-weight: 400; font-size: 20px; }
+        .modal input { background: #111; border: 1px solid #444; padding: 10px; color: white; font-family: var(--font-body); }
+        
         .hidden { display: none !important; }
         canvas { display: none; }
     </style>
@@ -122,44 +140,46 @@
 <div id="setup-modal" class="modal hidden">
     <div class="modal-box">
         <h2>( AUTH )</h2>
-        <p style="color:#888;">DROPBOX TOKEN REQUIRED</p>
+        <p style="color:#888; font-size: 12px; margin:0;">DROPBOX ACCESS TOKEN</p>
         <input type="text" id="token-input" placeholder="sl.B5...">
-        <button class="primary" onclick="saveToken()">CONNECT</button>
+        <button class="ui-btn primary" onclick="saveToken()">CONNECT</button>
     </div>
 </div>
 
 <div id="project-modal" class="modal hidden">
     <div class="modal-box">
-        <h2>( NEW )</h2>
-        <input type="text" id="new-proj-name" placeholder="NAME">
-        <select id="new-proj-overlay">
+        <h2>( NEW_PROJECT )</h2>
+        <input type="text" id="new-proj-name" placeholder="NAME (e.g. Gym)">
+        <select id="new-proj-overlay" style="border: 1px solid #333; padding: 10px;">
             <option value="guide-face">GUIDE: FACE</option>
             <option value="guide-thirds">GUIDE: GRID</option>
             <option value="guide-none">GUIDE: NONE</option>
         </select>
         <div style="display:flex; gap:10px;">
-            <button class="primary" style="flex:1" onclick="saveNewProject()">OK</button>
-            <button style="flex:1" onclick="toggleProjectModal()">X</button>
+            <button class="ui-btn primary" style="flex:1" onclick="saveNewProject()">CREATE</button>
+            <button class="ui-btn" style="flex:1" onclick="toggleProjectModal()">CANCEL</button>
         </div>
     </div>
 </div>
 
 <header>
-    <div style="display:flex; gap:10px; align-items:center;">
-        <span style="font-family: var(--font-head); font-size: 18px;">( C )</span>
-        <select id="project-select" style="border:none; border-bottom:1px solid #333; background: transparent;"></select>
-        <button onclick="toggleProjectModal()" style="border:none; font-size:18px;">+</button>
+    <div class="header-left">
+        <span class="app-title">( C )</span>
+        <select id="project-select"></select>
+        <button onclick="toggleProjectModal()" style="background:none; border:none; color:white; font-size:18px;">+</button>
     </div>
-    <div style="display:flex; gap:10px;">
-        <button onclick="requestGyro()" style="border:none; font-size:12px; color:#888;" id="btn-gyro">( LVL )</button>
-        <button onclick="syncProjects()" style="border:none; font-size:12px; color:#888;">( SYNC )</button>
+    <div class="header-right">
+        <button onclick="requestGyro()" class="text-btn" id="btn-gyro">( LVL )</button>
+        <button onclick="syncProjects()" class="text-btn" id="btn-sync">( SYNC )</button>
     </div>
 </header>
 
 <div class="viewport">
     <video id="video" autoplay playsinline></video>
     <img id="onion-layer" />
-    <canvas id="ascii-canvas"></canvas> <div class="mask-container">
+    <img id="preview-layer" /> <canvas id="ascii-canvas"></canvas>
+    
+    <div class="mask-container">
         <div id="overlay-container" class="overlay-layer"></div>
         <div id="gyro-line"></div>
     </div>
@@ -167,26 +187,28 @@
 
 <div class="controls">
     <div class="slider-row">
-        <span>GHOST</span>
+        <span style="width:40px;">GHOST</span>
         <input type="range" min="0" max="100" value="0" oninput="updateOnion(this.value)">
         <span id="onion-val">00</span>
     </div>
 
     <div id="cam-controls" style="display:flex; gap:10px;">
-        <button class="primary" id="snap-btn" style="flex:2;">CAPTURE</button>
-        <button onclick="flipCamera()" style="flex:1;">CAM</button>
+        <button class="ui-btn primary" id="snap-btn" style="flex:2;">CAPTURE</button>
+        <button class="ui-btn" onclick="flipCamera()" style="flex:1;">CAM</button>
     </div>
 
     <div id="review-panel" class="hidden" style="display: flex; gap: 10px;">
-        <button onclick="retryPhoto()" style="flex:1;">RETRY</button>
-        <button class="primary" onclick="uploadPhoto()" style="flex:2;">SAVE</button>
+        <button class="ui-btn" onclick="retryPhoto()" style="flex:1;">RETRY</button>
+        <button class="ui-btn primary" onclick="uploadPhoto()" style="flex:2;">SAVE</button>
     </div>
 
     <div class="status-bar">
         <span id="streak-display">STRK: 00</span>
-        <span id="res-info">4:5</span>
+        <span id="status-msg">READY</span>
     </div>
 </div>
+
+<div class="version-lbl">v0.5.2</div>
 
 <canvas id="canvas"></canvas>
 <canvas id="small-canvas"></canvas>
@@ -221,95 +243,82 @@
     }
     function flipCamera() { startCamera(facingMode === "user" ? "environment" : "user"); }
 
-    // Gyroscope Logic
+    // FIXED GYRO LOGIC
     function requestGyro() {
-        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        const btn = document.getElementById('btn-gyro');
+        // iOS requires permission request
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
             DeviceOrientationEvent.requestPermission()
                 .then(state => {
                     if (state === 'granted') {
                         window.addEventListener('deviceorientation', handleOrientation);
                         document.getElementById('gyro-line').style.display = 'block';
-                        document.getElementById('btn-gyro').style.color = 'white';
-                    }
+                        btn.classList.add('active');
+                    } else { alert("Permission Denied"); }
                 })
                 .catch(console.error);
         } else {
-            // Android/Non-iOS
+            // Android / Non-iOS
             window.addEventListener('deviceorientation', handleOrientation);
             document.getElementById('gyro-line').style.display = 'block';
-            document.getElementById('btn-gyro').style.color = 'white';
+            btn.classList.add('active');
         }
     }
 
     function handleOrientation(e) {
         const line = document.getElementById('gyro-line');
-        // Gamma is left/right tilt (holding phone vertically)
-        // Beta is front/back tilt (holding phone horizontally)
-        // We assume Portrait Mode usage mainly
+        // Gamma is standard left/right tilt in portrait
         let tilt = e.gamma; 
         
-        // Simple rotation
+        // Rotate the line
         line.style.transform = `rotate(${tilt}deg)`;
         
-        // Level detection (+/- 2 degrees)
-        if (tilt > -2 && tilt < 2) {
+        // Visual feedback for "Level"
+        if (tilt > -3 && tilt < 3) {
             line.classList.add('level');
         } else {
             line.classList.remove('level');
         }
     }
 
-    // --- 3. ASCII ENGINE ---
-    const asciiChars = "@%#*+=-:. "; // Dark to light
+    // --- 3. ASCII & CAPTURE ---
+    const asciiChars = "@%#*+=-:. "; 
     
     function generateAscii(sourceCanvas) {
-        // We downscale image to small canvas to get pixel data
         const small = document.getElementById('small-canvas');
-        const w = 80; // ASCII width (characters)
-        const h = 100; // ASCII height (rows) -> roughly 4:5
+        const w = 60; const h = 75; // 4:5ish ratio
         small.width = w; small.height = h;
         const ctx = small.getContext('2d');
         ctx.drawImage(sourceCanvas, 0, 0, w, h);
-        
         const pixels = ctx.getImageData(0,0,w,h).data;
-        let asciiStr = "";
-        
+        let str = "";
         for(let y=0; y<h; y++){
             for(let x=0; x<w; x++){
                 const i = (y*w + x) * 4;
-                const r = pixels[i]; const g = pixels[i+1]; const b = pixels[i+2];
-                const avg = (r+g+b)/3;
-                const charIdx = Math.floor((avg / 255) * (asciiChars.length - 1));
-                asciiStr += asciiChars[charIdx];
+                const avg = (pixels[i]+pixels[i+1]+pixels[i+2])/3;
+                str += asciiChars[Math.floor((avg/255)*(asciiChars.length-1))];
             }
-            asciiStr += "\n";
+            str += "\n";
         }
-        return asciiStr;
+        return str;
     }
 
     function drawAsciiToCanvas(str) {
         const c = document.getElementById('ascii-canvas');
         c.width = 800; c.height = 1000;
         const ctx = c.getContext('2d');
-        ctx.fillStyle = "black";
-        ctx.fillRect(0,0,c.width,c.height);
-        ctx.fillStyle = "#00ff00"; // Classic matrix green or white? Let's go WHITE for monochrome
-        ctx.fillStyle = "white";
-        ctx.font = "12px monospace";
-        
-        const lines = str.split('\n');
-        lines.forEach((line, i) => {
-            ctx.fillText(line, 10, 15 + (i * 10));
-        });
+        ctx.fillStyle = "black"; ctx.fillRect(0,0,c.width,c.height);
+        ctx.fillStyle = "white"; ctx.font = "14px monospace";
+        str.split('\n').forEach((line, i) => ctx.fillText(line, 20, 20 + (i*12)));
         return c;
     }
 
-    // --- 4. CAPTURE ---
+    // CAPTURE LOGIC (Fixed Freeze Frame)
     const canvas = document.getElementById('canvas'); 
     let currentBlob = null;
     let asciiBlob = null;
 
-    document.getElementById('snap-btn').addEventListener('click', async () => {
+    document.getElementById('snap-btn').addEventListener('click', () => {
         const vidW = video.videoWidth;
         const targetW = vidW;
         const targetH = vidW * 1.25; 
@@ -320,31 +329,35 @@
         if(facingMode === "user") { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
         ctx.drawImage(video, 0, startY, targetW, targetH, 0, 0, targetW, targetH);
         
-        // 1. Generate ASCII
+        // 1. ASCII Effect
         const str = generateAscii(canvas);
         const asciiCan = drawAsciiToCanvas(str);
-        
-        // 2. FLASH EFFECT
         const asciiEl = document.getElementById('ascii-canvas');
         asciiEl.style.display = 'block';
-        setTimeout(() => { asciiEl.style.display = 'none'; }, 1000); // 1s Flash
+        setTimeout(() => asciiEl.style.display = 'none', 800);
         
+        // 2. Show Freeze Frame (Preview)
+        const preview = document.getElementById('preview-layer');
+        preview.src = canvas.toDataURL('image/jpeg');
+        preview.style.display = 'block';
+
         // 3. Prep Blobs
         canvas.toBlob(b => currentBlob = b, 'image/jpeg', 0.95);
         asciiCan.toBlob(b => asciiBlob = b, 'image/jpeg', 0.80);
         
-        // 4. UI Transition
+        // 4. UI Switch
         document.getElementById('cam-controls').classList.add('hidden');
         document.getElementById('review-panel').classList.remove('hidden');
     });
 
     function retryPhoto() { 
+        document.getElementById('preview-layer').style.display = 'none';
         document.getElementById('cam-controls').classList.remove('hidden');
         document.getElementById('review-panel').classList.add('hidden');
         currentBlob = null; asciiBlob = null;
     }
 
-    // --- 5. DATA & UPLOAD ---
+    // --- 4. DATA, SYNC & UPLOAD ---
     const select = document.getElementById('project-select');
     let db;
     const DB_REQ = indexedDB.open("CapsuleSys", 1);
@@ -365,8 +378,6 @@
         if(!proj) return;
         document.getElementById('overlay-container').innerHTML = `<div class="${proj.overlay}"></div>`;
         document.getElementById('streak-display').innerText = `STRK: ${(proj.streak || 0).toString().padStart(2,'0')}`;
-        
-        // Load Ghost
         if(db) {
             db.transaction(['ghosts']).objectStore('ghosts').get(id).onsuccess = (e) => {
                 document.getElementById('onion-layer').src = e.target.result ? URL.createObjectURL(e.target.result.blob) : "";
@@ -375,9 +386,58 @@
     }
     select.addEventListener('change', (e) => loadProject(e.target.value));
 
+    // FIXED SYNC FUNCTION
+    async function syncProjects() {
+        const btn = document.getElementById('btn-sync');
+        btn.innerText = "( ... )";
+        
+        try {
+            const res = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + dbxToken, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: "", recursive: false })
+            });
+            
+            const data = await res.json();
+            if(data.error) throw new Error(data.error_summary);
+
+            const folders = data.entries.filter(e => e['.tag'] === 'folder');
+            let added = 0;
+            
+            folders.forEach(f => {
+                // Check if folder is already a project
+                const exists = myProjects.find(p => p.folder === "/" + f.name || p.folder === f.name);
+                if (!exists) {
+                    const id = f.name.toLowerCase().replace(/\s+/g, '-');
+                    myProjects.push({
+                        id: id,
+                        name: f.name.toUpperCase(),
+                        overlay: "guide-none",
+                        folder: "/" + f.name,
+                        streak: 0
+                    });
+                    added++;
+                }
+            });
+
+            if(added > 0) {
+                localStorage.setItem('my_projects', JSON.stringify(myProjects));
+                renderProjects();
+                alert(`SYNC: Found ${added} projects.`);
+            } else {
+                alert("SYNC: Up to date.");
+            }
+            btn.innerText = "( OK )"; setTimeout(() => btn.innerText = "( SYNC )", 2000);
+
+        } catch (e) {
+            alert("SYNC ERROR: " + e.message);
+            btn.innerText = "( ERR )";
+        }
+    }
+
     async function uploadPhoto() {
         if (!currentBlob) return;
-        const status = document.getElementById('streak-display');
+        const status = document.getElementById('status-msg');
         status.innerText = "UPLOADING...";
         
         const pid = select.value;
@@ -386,30 +446,24 @@
         const dateStr = now.toISOString().split('T')[0];
 
         try {
-            // Save Ghost
             db.transaction(['ghosts'], 'readwrite').objectStore('ghosts').put({ id: pid, blob: currentBlob });
             
-            // Streak Logic
+            // Streak
             if(proj.lastDate !== dateStr) {
-                // Check if consecutive (simple check: if lastDate was yesterday)
-                // For now, simple increment if date changed
                 proj.streak = (proj.streak || 0) + 1;
                 proj.lastDate = dateStr;
                 localStorage.setItem('my_projects', JSON.stringify(myProjects));
             }
 
-            // Upload 1: Clean
             await sendToDropbox(currentBlob, `${proj.folder}/${pid}-${dateStr}.jpg`);
-            // Upload 2: ASCII
             await sendToDropbox(asciiBlob, `${proj.folder}/${pid}-${dateStr}-ascii.jpg`);
-            // Upload 3: Meta
             const meta = { time: now, project: pid, cam: facingMode };
             await sendToDropbox(new Blob([JSON.stringify(meta)],{type:'application/json'}), `${proj.folder}/${pid}-${dateStr}.json`);
 
             retryPhoto(); status.innerText = "SAVED"; 
-            setTimeout(() => loadProject(pid), 1500); // Reload to show streak
+            setTimeout(() => { loadProject(pid); status.innerText = "READY"; }, 1500);
 
-        } catch(e) { alert(e.message); status.innerText = "ERR"; }
+        } catch(e) { alert(e.message); status.innerText = "ERROR"; }
     }
 
     async function sendToDropbox(f, p) {
@@ -434,7 +488,6 @@
         renderProjects(); select.value = id; loadProject(id); toggleProjectModal();
     }
     function updateOnion(val) { document.getElementById('onion-layer').style.opacity = val / 100; document.getElementById('onion-val').innerText = val.padStart(2, '0'); }
-    function syncProjects() { alert("Use v0.4 code for full sync, stripped here for space."); }
 
     if(dbxToken) { startCamera(); renderProjects(); }
     if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
