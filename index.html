@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CAPSULE v0.6.7</title>
+    <title>CAPSULE v0.6.8</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="icon.png">
     <link rel="apple-touch-icon" href="icon.png">
@@ -69,17 +69,16 @@
         #meta-overlay {
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             padding: 20px;
-            padding-top: 90px; /* Avoid Header */
-            padding-bottom: 120px; /* Avoid Footer */
+            padding-top: 80px; /* Adjusted so Top stats are visible */
+            padding-bottom: 120px;
             z-index: 40; 
-            pointer-events: auto; /* Enable Scrolling Interaction */
-            overflow-y: auto; /* Enable Scroll */
+            pointer-events: auto;
+            overflow-y: auto; 
             display: none;
-            flex-direction: column; justify-content: flex-start; /* Start text at top */
+            flex-direction: column; justify-content: flex-start;
             font-family: var(--font-body); font-size: 12px; line-height: 1.5;
             white-space: pre-wrap;
-            /* No drop shadow */
-            -webkit-overflow-scrolling: touch; /* Smooth scroll on iOS */
+            -webkit-overflow-scrolling: touch; 
         }
         
         .mask-container {
@@ -200,7 +199,7 @@
 
     <div class="status-bar">
         <span id="streak-display">STRK: 00</span>
-        <span id="status-msg">v0.6.7</span>
+        <span id="status-msg">v0.6.8</span>
     </div>
 </div>
 
@@ -252,20 +251,29 @@
         const d = pendingMetadata || { note: "Data Gathering..." };
         const overlay = document.getElementById('meta-overlay');
         
-        let txt = `// CAPSULE LOG v0.6.7\n`;
+        let txt = `// CAPSULE LOG v0.6.8\n`;
         txt += `// ${new Date().toISOString()}\n\n`;
         
-        if(d.loc)     txt += `LOC:   ${d.loc.city || "Unknown"}\n`;
-        if(d.weather) txt += `ENV:   ${d.weather.temp}C (Code: ${d.weather.code})\n`;
+        // LOC / ENV (Force display even if N/A)
+        txt += `LOC:   ${d.loc && d.loc.city ? d.loc.city : "Acquiring..."}\n`;
+        txt += `ENV:   ${d.weather ? d.weather.temp + "C" : "N/A"}\n`;
         
-        txt += `\n// FINANCIAL\n`;
-        if(d.rates)   txt += `EUR/HUF: ${d.rates.EUR_HUF}\nUSD/HUF: ${d.rates.USD_HUF}\nBTC/USD: ${d.rates.BTC}\n`;
+        txt += `\n// MARKETS (EUR/GBP/USD)\n`;
+        if(d.rates) {
+            txt += `EUR/HUF: ${d.rates.EUR_HUF}\n`;
+            txt += `GBP/HUF: ${d.rates.GBP_HUF}\n`;
+            txt += `USD/HUF: ${d.rates.USD_HUF}\n`;
+            txt += `BTC/USD: ${d.rates.BTC}\n`;
+        } else { txt += "Rates N/A\n"; }
         
-        txt += `\n// TOP HEADLINES\n`;
-        if(d.news) {
-            d.news.local.forEach(n => txt += `> ${n}\n\n`); // Full text, double spacing
-            d.news.global.forEach(n => txt += `> ${n}\n\n`);
-        }
+        txt += `\n// INDIE FEED (TELEX/24.HU)\n`;
+        if(d.news && d.news.local) d.news.local.forEach(n => txt += `> ${n}\n\n`);
+
+        txt += `\n// GOSSIP (VELVET/24)\n`;
+        if(d.news && d.news.celeb) d.news.celeb.forEach(n => txt += `> ${n}\n\n`);
+        
+        txt += `\n// GLOBAL (BBC)\n`;
+        if(d.news && d.news.global) d.news.global.forEach(n => txt += `> ${n}\n\n`);
         
         overlay.innerText = txt;
     }
@@ -280,43 +288,49 @@
         const brightness = Math.floor(colorSum / (imgData.data.length / 4));
         const overlay = document.getElementById('meta-overlay');
         overlay.style.color = brightness > 140 ? "black" : "white";
-        // No drop shadow as requested
         overlay.style.textShadow = "none";
     }
 
-    // --- 4. DATA GATHERING (HOTTEST NEWS) ---
+    // --- 4. DATA GATHERING ---
     async function gatherMegaData() {
-        pendingMetadata = { meta_ver: "2.1", loc: {}, news: {local:[], global:[]} };
+        pendingMetadata = { meta_ver: "2.2", loc: {}, news: {local:[], global:[], celeb:[]} };
         
         // 1. Get Location (with fallback)
         let lat=47.49, lon=19.04; 
         try {
-            const pos = await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j,{timeout:1500}));
+            const pos = await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j,{timeout:2000}));
             lat=pos.coords.latitude; lon=pos.coords.longitude;
             pendingMetadata.loc.city = `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
-        } catch(e){}
+        } catch(e){ pendingMetadata.loc.city = "GPS Timeout"; }
 
         // 2. Parallel Fetch
         try {
-            // Encode Google News URLs for the Bridge
-            const googleHu = encodeURIComponent("https://news.google.com/rss?ceid=HU:hu&hl=hu&gl=HU");
-            const googleWorld = encodeURIComponent("https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en");
-
-            const [weather, finance, btc, newsLocal, newsGlobal] = await Promise.allSettled([
+            const [weather, finance, btc, telex, h24, celeb, bbc] = await Promise.allSettled([
                 fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`).then(r=>r.json()),
-                fetch('https://api.frankfurter.app/latest?from=EUR&to=HUF,USD').then(r=>r.json()),
+                // Added GBP
+                fetch('https://api.frankfurter.app/latest?from=EUR&to=HUF,USD,GBP').then(r=>r.json()),
                 fetch('https://api.coincap.io/v2/assets/bitcoin').then(r=>r.json()),
-                // Use Google News via RSS2JSON for "Hottest"
-                fetch(`https://api.rss2json.com/v1/api.json?rss_url=${googleHu}`).then(r=>r.json()),
-                fetch(`https://api.rss2json.com/v1/api.json?rss_url=${googleWorld}`).then(r=>r.json())
+                // Independent Sources
+                fetch(`https://api.rss2json.com/v1/api.json?rss_url=https://telex.hu/rss`).then(r=>r.json()),
+                fetch(`https://api.rss2json.com/v1/api.json?rss_url=https://24.hu/feed/`).then(r=>r.json()),
+                // Celeb Source
+                fetch(`https://api.rss2json.com/v1/api.json?rss_url=https://24.hu/szorakozas/feed/`).then(r=>r.json()),
+                fetch(`https://api.rss2json.com/v1/api.json?rss_url=http://feeds.bbci.co.uk/news/world/rss.xml`).then(r=>r.json())
             ]);
 
             if(weather.status === "fulfilled") pendingMetadata.weather = weather.value.current_weather;
             
             if(finance.status === "fulfilled") {
                 const r = finance.value.rates;
+                // EUR base. 
+                // GBP/HUF = (EUR/HUF) / (EUR/GBP). 
+                // Wait, Frankfurter allows 'from'. 
+                // Let's stick to EUR base math to avoid multiple calls.
+                // Or better: Base EUR. 
+                // r.HUF = 400. r.GBP = 0.85. -> GBP/HUF = 400 / 0.85.
                 pendingMetadata.rates = {
                     EUR_HUF: r.HUF,
+                    GBP_HUF: (r.HUF / r.GBP).toFixed(2),
                     USD_HUF: (r.HUF / r.USD).toFixed(2)
                 };
             }
@@ -325,12 +339,20 @@
                 pendingMetadata.rates.BTC = parseFloat(btc.value.data.priceUsd).toFixed(0);
             }
 
-            // Grab top 2 from Google News (These are the "Leads")
-            if(newsLocal.status === "fulfilled" && newsLocal.value.items) {
-                pendingMetadata.news.local = newsLocal.value.items.slice(0, 2).map(i => i.title);
+            // Mix Telex and 24.hu for Hard News
+            let localMix = [];
+            if(telex.status === "fulfilled" && telex.value.items) localMix.push(telex.value.items[0].title);
+            if(h24.status === "fulfilled" && h24.value.items) localMix.push(h24.value.items[0].title);
+            pendingMetadata.news.local = localMix;
+
+            // Celeb
+            if(celeb.status === "fulfilled" && celeb.value.items) {
+                pendingMetadata.news.celeb = celeb.value.items.slice(0, 2).map(i => i.title);
             }
-            if(newsGlobal.status === "fulfilled" && newsGlobal.value.items) {
-                pendingMetadata.news.global = newsGlobal.value.items.slice(0, 2).map(i => i.title);
+
+            // Global
+            if(bbc.status === "fulfilled" && bbc.value.items) {
+                pendingMetadata.news.global = bbc.value.items.slice(0, 2).map(i => i.title);
             }
 
             if(document.getElementById('meta-overlay').style.display === 'flex') renderMetadataText();
@@ -412,7 +434,7 @@
             
             localStorage.setItem('my_projects', JSON.stringify(myProjects));
             renderProjects();
-            status.innerText = `( +${added} )`; setTimeout(() => { status.innerText = "v0.6.7"; status.style.color = "#555"; }, 2000);
+            status.innerText = `( +${added} )`; setTimeout(() => { status.innerText = "v0.6.8"; status.style.color = "#555"; }, 2000);
 
         } catch (e) { status.innerText = "( ERR )"; }
     }
@@ -438,7 +460,7 @@
             }
 
             retryPhoto(); status.innerText = "SAVED"; 
-            setTimeout(() => { loadProject(pid); status.innerText = "v0.6.7"; }, 1500);
+            setTimeout(() => { loadProject(pid); status.innerText = "v0.6.8"; }, 1500);
         } catch(e) { status.innerText = "ERR"; }
     }
 
