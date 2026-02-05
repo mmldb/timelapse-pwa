@@ -3,143 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CAPSULE v0.6.0</title>
+    <title>CAPSULE v0.6.1</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="data:,">
     
     <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     
     <style>
-        /* --- THEME: IMMERSIVE INDUSTRIAL --- */
+        /* --- THEME: MONOCHROME INDUSTRIAL (CLASSIC) --- */
         :root {
             --bg: #000000;
             --fg: #ffffff;
+            --dim: #444444;
+            --border: 1px dashed #333; 
             --font-head: 'DotGothic16', sans-serif;
             --font-body: 'Space Mono', monospace;
         }
 
         body { 
-            margin: 0; background: #000; color: white; 
+            margin: 0; background: var(--bg); color: var(--fg); 
             font-family: var(--font-body); font-size: 13px;
-            height: 100vh; width: 100vw; overflow: hidden;
-            position: relative; /* Container for absolute children */
+            height: 100vh; display: flex; flex-direction: column; overflow: hidden; 
             -webkit-font-smoothing: antialiased;
         }
 
-        /* --- VIDEO LAYER (Bottom Z-Index) --- */
-        #video-container {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 0; display: flex; justify-content: center; align-items: center;
-            background: #111;
+        /* --- LAYOUT --- */
+        header { 
+            padding: 12px 15px; border-bottom: var(--border);
+            display: flex; justify-content: space-between; align-items: center; 
+            background: rgba(0,0,0,0.95); z-index: 50; gap: 10px;
+        }
+        
+        .header-left { display: flex; align-items: center; gap: 8px; flex-grow: 1; overflow: hidden; }
+        .app-title { font-family: var(--font-head); font-size: 18px; white-space: nowrap; flex-shrink: 0; }
+        
+        select {
+            background: black; color: white;
+            border: none; border-bottom: 1px solid #333; border-radius: 0; 
+            padding: 4px 0; font-family: var(--font-body); outline: none;
+            width: 100%; max-width: 120px; text-overflow: ellipsis;
+        }
+        
+        .header-right { display: flex; gap: 15px; flex-shrink: 0; }
+        .text-btn { background: none; border: none; color: #666; font-size: 11px; cursor: pointer; padding: 5px; font-family: var(--font-body); }
+        .text-btn.active { color: white; text-decoration: underline; }
+
+        /* --- VIEWFINDER --- */
+        .viewport { 
+            flex-grow: 1; position: relative; background: #050505; 
+            display: flex; justify-content: center; align-items: center; overflow: hidden;
         }
         
         video { 
-            width: 100%; height: 100%; object-fit: cover; 
-            transition: transform 0.3s; /* Smooth flip */
+            position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: 1; 
+            transition: transform 0.3s;
         }
-        
-        /* The CSS Mirror Class */
+        /* Mirror Class for Selfies */
         video.mirrored { transform: scaleX(-1); }
-
-        #onion-layer, #preview-layer { 
+        
+        #onion-layer { 
             position: absolute; width: 100%; height: 100%; object-fit: cover; 
-            z-index: 5; pointer-events: none;
+            z-index: 10; opacity: 0; pointer-events: none; filter: grayscale(100%);
         }
-        #onion-layer { opacity: 0; filter: grayscale(100%); }
-        #preview-layer { display: none; z-index: 25; } /* Freezes on top of mask */
 
-        /* ASCII FLASH */
+        #preview-layer {
+            position: absolute; width: 100%; height: 100%; object-fit: cover;
+            z-index: 25; display: none; background: #000;
+        }
+
         #ascii-canvas {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover;
+            position: absolute; width: 100%; height: 100%; object-fit: contain;
             z-index: 30; pointer-events: none; display: none; background: black;
         }
-
-        /* --- CROP MASK (The "Ghostly" 4:5 Guide) --- */
-        .mask-wrapper {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 10; pointer-events: none;
+        
+        .mask-container {
+            position: relative; z-index: 20; pointer-events: none;
+            width: 100%; max-width: 600px; aspect-ratio: 4/5;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.9);
+            border: 1px solid rgba(255,255,255,0.2);
             display: flex; justify-content: center; align-items: center;
         }
 
-        .crop-box {
-            width: 100%; max-width: 600px; aspect-ratio: 4/5;
-            position: relative;
-            /* 15% opacity black overlay on the OUTSIDE */
-            box-shadow: 0 0 0 9999px rgba(0,0,0,0.25); 
-            border: 1px solid rgba(255,255,255,0.3);
-        }
-
-        /* OVERLAYS INSIDE CROP */
+        .overlay-layer { width: 100%; height: 100%; position: relative; }
+        
+        /* GUIDES */
         .guide-face { 
             position: absolute; top: 48%; left: 50%; transform: translate(-50%, -50%);
-            width: 190px; height: 270px; border: 1px dashed rgba(255,255,255,0.5); border-radius: 50%; 
+            width: 190px; height: 270px; border: 1px dashed rgba(255,255,255,0.6); border-radius: 50%; 
         }
         .guide-thirds {
-            width: 100%; height: 100%; opacity: 0.15;
+            width: 100%; height: 100%; opacity: 0.2;
             background-image: linear-gradient(white 1px, transparent 1px), linear-gradient(90deg, white 1px, transparent 1px);
             background-size: 33.3% 33.3%;
         }
+        .guide-x {
+            width: 100%; height: 100%; opacity: 0.3;
+            background: 
+                linear-gradient(to top left, transparent 49.5%, white 49.5%, white 50.5%, transparent 50.5%),
+                linear-gradient(to top right, transparent 49.5%, white 49.5%, white 50.5%, transparent 50.5%);
+        }
 
         #gyro-line {
-            position: absolute; top: 50%; left: 10%; right: 10%; height: 1px;
-            background: rgba(255,255,255,0.5); z-index: 15;
-            transform-origin: center; display: none; 
+            position: absolute; top: 50%; left: 15%; right: 15%; height: 1px;
+            background: rgba(255,255,255,0.6); z-index: 22;
+            transform-origin: center; display: none; transition: transform 0.1s;
         }
-        #gyro-line.level { background: #fff; height: 2px; box-shadow: 0 0 5px white; }
+        #gyro-line.level { background: #fff; height: 3px; box-shadow: 0 0 6px #fff; }
 
-        /* --- UI LAYER (Floating on top) --- */
-        header { 
-            position: absolute; top: 0; left: 0; width: 100%;
-            padding: 15px; box-sizing: border-box;
-            display: flex; justify-content: space-between; align-items: center; gap: 15px;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, transparent 100%);
-            z-index: 50;
-        }
-
+        /* --- CONTROLS --- */
         .controls { 
-            position: absolute; bottom: 0; left: 0; width: 100%;
-            padding: 20px; box-sizing: border-box;
-            display: flex; flex-direction: column; gap: 15px;
-            background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 60%, transparent 100%);
-            z-index: 50;
-            padding-bottom: 30px; /* Safe area for swipe bar */
+            padding: 20px; border-top: var(--border); background: var(--bg);
+            display: flex; flex-direction: column; gap: 15px; z-index: 50;
         }
 
-        /* --- COMPONENTS --- */
-        select {
-            background: transparent; color: white;
-            border: none; border-bottom: 1px solid rgba(255,255,255,0.3); border-radius: 0; 
-            padding: 5px 0; font-family: var(--font-body); outline: none;
-            width: 100%;
-        }
-        
-        .header-tools { display: flex; gap: 12px; }
-        .tiny-btn { 
-            background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); 
-            color: #aaa; font-size: 10px; padding: 6px 8px; cursor: pointer;
-            font-family: var(--font-body);
-        }
-        .tiny-btn.active { background: white; color: black; border-color: white; }
-
-        button.big-btn {
-            background: rgba(0,0,0,0.2); color: white; 
-            border: 1px solid rgba(255,255,255,0.4); padding: 18px;
+        button.ui-btn {
+            background: transparent; color: white; border: 1px solid #333; padding: 15px;
             font-family: var(--font-body); font-weight: 700; font-size: 14px; 
-            text-transform: uppercase; cursor: pointer; backdrop-filter: blur(2px);
+            text-transform: uppercase; cursor: pointer; transition: all 0.1s;
+            letter-spacing: 1px;
         }
-        button.big-btn:active { background: white; color: black; }
-        
-        .slider-row { display: flex; align-items: center; gap: 10px; font-size: 11px; color: #ccc; font-family: var(--font-body); }
+        button.ui-btn:active { background: white; color: black; border-color: white; }
+        button.primary { border-color: #888; }
+
+        .slider-row { display: flex; align-items: center; gap: 10px; font-size: 11px; color: #666; font-family: var(--font-body); }
         input[type=range] { -webkit-appearance: none; background: transparent; flex-grow: 1; }
-        input[type=range]::-webkit-slider-runnable-track { height: 1px; background: rgba(255,255,255,0.3); }
+        input[type=range]::-webkit-slider-runnable-track { height: 1px; background: #333; }
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; margin-top: -5px; height: 11px; width: 11px; background: white; border-radius: 50%; }
 
-        .status-bar { display: flex; justify-content: space-between; font-size: 10px; color: #888; margin-top: 5px; }
-
+        .status-bar { display: flex; justify-content: space-between; font-family: var(--font-body); color: #555; font-size: 10px; margin-top: 5px; }
+        
         /* MODALS */
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
-        .modal-box { width: 100%; max-width: 300px; border: 1px solid #333; padding: 25px; background: #050505; display: flex; flex-direction: column; gap: 20px; }
-        .modal input { background: #111; border: 1px solid #333; padding: 10px; color: white; width: 100%; box-sizing: border-box; }
+        .modal-box { width: 100%; max-width: 300px; border: 1px solid white; padding: 25px; background: black; display: flex; flex-direction: column; gap: 20px; }
+        .modal h2 { margin: 0; font-family: var(--font-head); font-weight: 400; font-size: 20px; }
+        .modal input { background: #111; border: 1px solid #444; padding: 10px; color: white; font-family: var(--font-body); }
         
         .hidden { display: none !important; }
         canvas { display: none; }
@@ -149,53 +146,55 @@
 
 <div id="setup-modal" class="modal hidden">
     <div class="modal-box">
-        <h2 style="margin:0; font-family:var(--font-head);">( AUTH )</h2>
-        <input type="text" id="token-input" placeholder="DROPBOX TOKEN">
-        <button class="big-btn" onclick="saveToken()">CONNECT</button>
+        <h2>( AUTH )</h2>
+        <p style="color:#888; font-size: 12px; margin:0;">DROPBOX ACCESS TOKEN</p>
+        <input type="text" id="token-input" placeholder="sl.B5...">
+        <button class="ui-btn primary" onclick="saveToken()">CONNECT</button>
     </div>
 </div>
 
 <div id="project-modal" class="modal hidden">
     <div class="modal-box">
-        <h2 style="margin:0; font-family:var(--font-head);">( NEW )</h2>
-        <input type="text" id="new-proj-name" placeholder="PROJECT NAME">
-        <select id="new-proj-overlay" style="border:1px solid #333; padding:10px;">
+        <h2>( NEW_PROJECT )</h2>
+        <input type="text" id="new-proj-name" placeholder="NAME (e.g. Gym)">
+        <select id="new-proj-overlay" style="border: 1px solid #333; padding: 10px;">
             <option value="guide-face">GUIDE: FACE</option>
             <option value="guide-thirds">GUIDE: GRID</option>
+            <option value="guide-x">GUIDE: X</option>
             <option value="guide-none">GUIDE: NONE</option>
         </select>
         <div style="display:flex; gap:10px;">
-            <button class="big-btn" style="flex:1" onclick="saveNewProject()">OK</button>
-            <button class="big-btn" style="flex:1; border-color:#333; color:#555;" onclick="toggleProjectModal()">X</button>
-        </div>
-    </div>
-</div>
-
-<div id="video-container">
-    <video id="video" autoplay playsinline></video>
-    <img id="onion-layer" />
-    <img id="preview-layer" />
-    <canvas id="ascii-canvas"></canvas>
-    
-    <div class="mask-wrapper">
-        <div class="crop-box">
-            <div id="overlay-container" style="width:100%; height:100%;"></div>
-            <div id="gyro-line"></div>
+            <button class="ui-btn primary" style="flex:1" onclick="saveNewProject()">CREATE</button>
+            <button class="ui-btn" style="flex:1" onclick="toggleProjectModal()">CANCEL</button>
         </div>
     </div>
 </div>
 
 <header>
-    <div style="flex-grow:1; display:flex; align-items:center; gap:10px;">
-        <span style="font-family:var(--font-head); font-size:18px;">( C )</span>
+    <div class="header-left">
+        <span class="app-title">( C )</span>
         <select id="project-select"></select>
-        <button onclick="toggleProjectModal()" style="background:none; border:none; color:white; font-size:20px;">+</button>
+        <button onclick="toggleProjectModal()" style="background:none; border:none; color:white; font-size:18px;">+</button>
     </div>
-    <div class="header-tools">
-        <button onclick="toggleGyro()" class="tiny-btn" id="btn-gyro">LVL</button>
-        <button onclick="syncProjects()" class="tiny-btn" id="btn-sync">SYNC</button>
+    <div class="header-right">
+        <button onclick="resetToken()" class="text-btn" style="color:#444;">( RESET )</button>
+        <button onclick="cycleOverlay()" class="text-btn" id="btn-ovr">( OVR )</button>
+        <button onclick="toggleGyro()" class="text-btn" id="btn-gyro">( LVL )</button>
+        <button onclick="syncProjects()" class="text-btn" id="btn-sync">( SYNC )</button>
     </div>
 </header>
+
+<div class="viewport">
+    <video id="video" autoplay playsinline></video>
+    <img id="onion-layer" />
+    <img id="preview-layer" />
+    <canvas id="ascii-canvas"></canvas>
+    
+    <div class="mask-container">
+        <div id="overlay-container" class="overlay-layer"></div>
+        <div id="gyro-line"></div>
+    </div>
+</div>
 
 <div class="controls">
     <div class="slider-row">
@@ -205,18 +204,18 @@
     </div>
 
     <div id="cam-controls" style="display:flex; gap:10px;">
-        <button class="big-btn" id="snap-btn" style="flex:3; border-color: white;">CAPTURE</button>
-        <button class="big-btn" onclick="flipCamera()" style="flex:1;">CAM</button>
+        <button class="ui-btn primary" id="snap-btn" style="flex:2;">CAPTURE</button>
+        <button class="ui-btn" onclick="flipCamera()" style="flex:1;">CAM</button>
     </div>
 
     <div id="review-panel" class="hidden" style="display: flex; gap: 10px;">
-        <button class="big-btn" onclick="retryPhoto()" style="flex:1;">RETRY</button>
-        <button class="big-btn" onclick="uploadPhoto()" style="flex:3; background: white; color: black;">SAVE</button>
+        <button class="ui-btn" onclick="retryPhoto()" style="flex:1;">RETRY</button>
+        <button class="ui-btn primary" onclick="uploadPhoto()" style="flex:2;">SAVE</button>
     </div>
 
     <div class="status-bar">
         <span id="streak-display">STRK: 00</span>
-        <span id="status-msg">v0.6.0</span>
+        <span id="status-msg">v0.6.1</span>
     </div>
 </div>
 
@@ -228,9 +227,11 @@
     let dbxToken = localStorage.getItem('dbx_token');
     if (!dbxToken) document.getElementById('setup-modal').classList.remove('hidden');
 
-    let myProjects = JSON.parse(localStorage.getItem('my_projects')) || [
-        { id: "face-daily", name: "FACE_DAILY", overlay: "guide-face", folder: "/FaceProject", streak: 0, lastDate: "" }
+    const defaultProjects = [
+        { id: "face-daily", name: "FACE_DAILY", overlay: "guide-face", folder: "/FaceProject", streak: 0, lastDate: "" },
+        { id: "landscape", name: "LANDSCAPE", overlay: "guide-thirds", folder: "/Landscape", streak: 0, lastDate: "" }
     ];
+    let myProjects = JSON.parse(localStorage.getItem('my_projects')) || defaultProjects;
 
     // --- 2. CAMERA (MIRRORED) ---
     let currentStream = null;
@@ -242,8 +243,8 @@
         if (currentStream) currentStream.getTracks().forEach(t => t.stop());
         facingMode = mode;
         
-        // CSS MIRROR LOGIC
-        if (mode === 'user') video.classList.add('mirrored');
+        // MIRROR LOGIC
+        if (facingMode === 'user') video.classList.add('mirrored');
         else video.classList.remove('mirrored');
 
         try {
@@ -256,8 +257,24 @@
     }
     function flipCamera() { startCamera(facingMode === "user" ? "environment" : "user"); }
 
-    // --- 3. GYRO ---
+    // --- 3. OVERLAYS & GYRO ---
     let isGyroOn = false;
+    const overlayList = ["guide-face", "guide-thirds", "guide-x", "guide-none"];
+    
+    function cycleOverlay() {
+        const container = document.getElementById('overlay-container');
+        // Find current
+        let currentClass = "";
+        if (container.firstElementChild) currentClass = container.firstElementChild.className;
+        
+        let idx = overlayList.indexOf(currentClass);
+        if (idx === -1) idx = 0;
+        
+        // Next
+        let nextIdx = (idx + 1) % overlayList.length;
+        container.innerHTML = `<div class="${overlayList[nextIdx]}"></div>`;
+    }
+
     function toggleGyro() {
         const btn = document.getElementById('btn-gyro');
         const line = document.getElementById('gyro-line');
@@ -281,7 +298,7 @@
         if (e.gamma > -3 && e.gamma < 3) line.classList.add('level'); else line.classList.remove('level');
     }
 
-    // --- 4. ASCII & CAPTURE ---
+    // --- 4. ASCII ENGINE ---
     const asciiChars = "@%#*+=-:. "; 
     function generateAscii(sourceCanvas) {
         const small = document.getElementById('small-canvas');
@@ -311,7 +328,7 @@
         return c;
     }
 
-    // CAPTURE (With Mirror Compensation)
+    // --- 5. CAPTURE ---
     const canvas = document.getElementById('canvas'); 
     let currentBlob = null;
     let asciiBlob = null;
@@ -321,34 +338,26 @@
         const targetW = vidW;
         const targetH = vidW * 1.25; 
         const startY = (video.videoHeight - targetH) / 2;
-
         canvas.width = targetW; canvas.height = targetH;
         const ctx = canvas.getContext('2d');
         
-        // MIRROR CAPTURE if User Mode
-        if(facingMode === "user") { 
-            ctx.translate(canvas.width, 0); 
-            ctx.scale(-1, 1); 
-        }
-        
+        // MIRROR CAPTURE
+        if(facingMode === "user") { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
         ctx.drawImage(video, 0, startY, targetW, targetH, 0, 0, targetW, targetH);
         
         const str = generateAscii(canvas);
         const asciiCan = drawAsciiToCanvas(str);
         
-        // Flash
         const asciiEl = document.getElementById('ascii-canvas');
         asciiEl.style.display = 'block';
         setTimeout(() => asciiEl.style.display = 'none', 800);
         
-        // Preview
         const preview = document.getElementById('preview-layer');
         preview.src = canvas.toDataURL('image/jpeg');
         preview.style.display = 'block';
 
         canvas.toBlob(b => currentBlob = b, 'image/jpeg', 0.95);
         asciiCan.toBlob(b => asciiBlob = b, 'image/jpeg', 0.80);
-        
         document.getElementById('cam-controls').classList.add('hidden');
         document.getElementById('review-panel').classList.remove('hidden');
     });
@@ -357,10 +366,10 @@
         document.getElementById('preview-layer').style.display = 'none';
         document.getElementById('cam-controls').classList.remove('hidden');
         document.getElementById('review-panel').classList.add('hidden');
-        currentBlob = null; 
+        currentBlob = null; asciiBlob = null;
     }
 
-    // --- 5. DATA, SYNC, UPLOAD ---
+    // --- 6. DATA & SYNC ---
     const select = document.getElementById('project-select');
     let db;
     const DB_REQ = indexedDB.open("CapsuleSys", 1);
@@ -422,7 +431,7 @@
                 renderProjects();
                 status.innerText = `( +${added}/-${removed} )`;
             } else { status.innerText = "( OK )"; }
-            setTimeout(() => { status.innerText = "v0.6.0"; status.style.color = "#888"; }, 2000);
+            setTimeout(() => { status.innerText = "v0.6.1"; status.style.color = "#555"; }, 2000);
 
         } catch (e) { 
             if(e.message === "401") handleAuthError();
@@ -452,7 +461,7 @@
             await sendToDropbox(new Blob([JSON.stringify(meta)],{type:'application/json'}), `${proj.folder}/${pid}-${dateStr}.json`);
             
             retryPhoto(); status.innerText = "SAVED"; 
-            setTimeout(() => { loadProject(pid); status.innerText = "v0.6.0"; status.style.color = "#888"; }, 1500);
+            setTimeout(() => { loadProject(pid); status.innerText = "v0.6.1"; status.style.color = "#555"; }, 1500);
         } catch(e) { 
             if(e.message.includes("401")) handleAuthError();
             else { status.innerText = "ERR"; status.style.color = "red"; }
@@ -470,6 +479,8 @@
     }
 
     function handleAuthError() { localStorage.removeItem('dbx_token'); alert("TOKEN EXPIRED"); location.reload(); }
+    function resetToken() { if(confirm("LOGOUT?")) { localStorage.removeItem('dbx_token'); location.reload(); } }
+    
     function toggleProjectModal() { document.getElementById('project-modal').classList.toggle('hidden'); }
     function saveToken() { const t = document.getElementById('token-input').value.trim(); if(t) { localStorage.setItem('dbx_token', t); location.reload(); } }
     function saveNewProject() {
