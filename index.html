@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CAPSULE v0.6.2</title>
+    <title>CAPSULE v0.6.3</title>
     <link rel="manifest" href="manifest.json">
     
     <link rel="icon" type="image/png" href="icon.png">
@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     
     <style>
-        /* --- THEME: MONOCHROME INDUSTRIAL --- */
+        /* --- THEME: MONOCHROME INDUSTRIAL (CLASSIC) --- */
         :root {
             --bg: #000000;
             --fg: #ffffff;
@@ -29,25 +29,38 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        /* --- LAYOUT --- */
+        /* --- 2-ROW HEADER --- */
         header { 
-            padding: 12px 15px; border-bottom: var(--border);
-            display: flex; justify-content: space-between; align-items: center; 
-            background: rgba(0,0,0,0.95); z-index: 50; gap: 10px;
+            padding: 15px; border-bottom: var(--border);
+            display: flex; flex-direction: column; gap: 15px; /* Gap between rows */
+            background: rgba(0,0,0,0.95); z-index: 50;
         }
         
-        .header-left { display: flex; align-items: center; gap: 8px; flex-grow: 1; overflow: hidden; }
-        .app-title { font-family: var(--font-head); font-size: 18px; white-space: nowrap; flex-shrink: 0; }
+        /* Row 1: Logo & Project */
+        .header-row-top { 
+            display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%;
+        }
+        
+        /* Row 2: Tools */
+        .header-row-bot { 
+            display: flex; justify-content: space-between; align-items: center; width: 100%;
+            padding-top: 5px; /* Slight breathing room */
+        }
+        
+        .app-title { font-family: var(--font-head); font-size: 20px; white-space: nowrap; }
         
         select {
             background: black; color: white;
             border: none; border-bottom: 1px solid #333; border-radius: 0; 
-            padding: 4px 0; font-family: var(--font-body); outline: none;
-            width: 100%; max-width: 120px; text-overflow: ellipsis;
+            padding: 5px 0; font-family: var(--font-body); outline: none;
+            flex-grow: 1; /* Takes up all available space */
+            text-align: center; font-size: 14px;
         }
         
-        .header-right { display: flex; gap: 15px; flex-shrink: 0; }
-        .text-btn { background: none; border: none; color: #666; font-size: 11px; cursor: pointer; padding: 5px; font-family: var(--font-body); }
+        .text-btn { 
+            background: none; border: none; color: #666; font-size: 11px; cursor: pointer; 
+            padding: 5px; font-family: var(--font-body); text-transform: uppercase;
+        }
         .text-btn.active { color: white; text-decoration: underline; }
 
         /* --- VIEWFINDER --- */
@@ -172,12 +185,12 @@
 </div>
 
 <header>
-    <div class="header-left">
+    <div class="header-row-top">
         <span class="app-title">( C )</span>
         <select id="project-select"></select>
-        <button onclick="toggleProjectModal()" style="background:none; border:none; color:white; font-size:18px;">+</button>
+        <button onclick="toggleProjectModal()" style="background:none; border:none; color:white; font-size:20px;">+</button>
     </div>
-    <div class="header-right">
+    <div class="header-row-bot">
         <button onclick="resetToken()" class="text-btn" style="color:#444;">( RESET )</button>
         <button onclick="cycleOverlay()" class="text-btn" id="btn-ovr">( OVR )</button>
         <button onclick="toggleGyro()" class="text-btn" id="btn-gyro">( LVL )</button>
@@ -216,7 +229,7 @@
 
     <div class="status-bar">
         <span id="streak-display">STRK: 00</span>
-        <span id="status-msg">v0.6.2</span>
+        <span id="status-msg">v0.6.3</span>
     </div>
 </div>
 
@@ -427,7 +440,7 @@
                 renderProjects();
                 status.innerText = `( +${added}/-${removed} )`;
             } else { status.innerText = "( OK )"; }
-            setTimeout(() => { status.innerText = "v0.6.2"; status.style.color = "#888"; }, 2000);
+            setTimeout(() => { status.innerText = "v0.6.3"; status.style.color = "#555"; }, 2000);
 
         } catch (e) { 
             if(e.message === "401") handleAuthError();
@@ -457,7 +470,7 @@
             await sendToDropbox(new Blob([JSON.stringify(meta)],{type:'application/json'}), `${proj.folder}/${pid}-${dateStr}.json`);
             
             retryPhoto(); status.innerText = "SAVED"; 
-            setTimeout(() => { loadProject(pid); status.innerText = "v0.6.2"; status.style.color = "#888"; }, 1500);
+            setTimeout(() => { loadProject(pid); status.innerText = "v0.6.3"; status.style.color = "#555"; }, 1500);
         } catch(e) { 
             if(e.message.includes("401")) handleAuthError();
             else { status.innerText = "ERR"; status.style.color = "red"; }
