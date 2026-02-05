@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CAPSULE v0.5.4</title>
+    <title>CAPSULE v0.5.5</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="data:,">
     
@@ -163,6 +163,7 @@
         <button onclick="toggleProjectModal()" style="background:none; border:none; color:white; font-size:18px;">+</button>
     </div>
     <div class="header-right">
+        <button onclick="resetToken()" class="text-btn" style="color:#444;">( RESET )</button>
         <button onclick="toggleGyro()" class="text-btn" id="btn-gyro">( LVL )</button>
         <button onclick="syncProjects()" class="text-btn" id="btn-sync">( SYNC )</button>
     </div>
@@ -199,7 +200,7 @@
 
     <div class="status-bar">
         <span id="streak-display">STRK: 00</span>
-        <span id="status-msg">v0.5.4</span>
+        <span id="status-msg">v0.5.5</span>
     </div>
 </div>
 
@@ -329,7 +330,7 @@
         currentBlob = null; asciiBlob = null;
     }
 
-    // --- 6. DATA & SYNC (MIRROR MODE) ---
+    // --- 6. DATA & SYNC ---
     const select = document.getElementById('project-select');
     let db;
     const DB_REQ = indexedDB.open("CapsuleSys", 1);
@@ -342,10 +343,7 @@
             const opt = document.createElement('option');
             opt.value = p.id; opt.innerText = p.name; select.appendChild(opt);
         });
-        // Handle deletion case (if current project is gone)
-        if (!myProjects.find(p => p.id === select.value)) {
-            if (myProjects.length > 0) select.value = myProjects[0].id;
-        }
+        if (!myProjects.find(p => p.id === select.value) && myProjects.length > 0) select.value = myProjects[0].id;
         loadProject(select.value);
     }
     
@@ -365,49 +363,44 @@
     async function syncProjects() {
         const status = document.getElementById('status-msg');
         status.innerText = "( SYNCING )"; status.style.color = "white";
-        
         try {
             const res = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
                 method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + dbxToken, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ path: "", recursive: false })
             });
+            if (res.status === 401) throw new Error("401"); 
+            
             const data = await res.json();
             if(data.error) throw new Error("API Err");
 
             const remoteFolders = data.entries.filter(e => e['.tag'] === 'folder');
             const remotePaths = remoteFolders.map(f => "/" + f.name.toLowerCase());
             
-            // 1. ADD NEW
             let added = 0;
             remoteFolders.forEach(f => {
-                const pName = "/" + f.name;
-                const exists = myProjects.find(p => p.folder.toLowerCase() === pName.toLowerCase());
+                const exists = myProjects.find(p => p.folder.toLowerCase() === ("/" + f.name).toLowerCase());
                 if (!exists) {
-                    const id = f.name.toLowerCase().replace(/\s+/g, '-');
-                    myProjects.push({ id, name: f.name.toUpperCase(), overlay: "guide-none", folder: "/" + f.name, streak: 0 });
+                    myProjects.push({ id: f.name.toLowerCase().replace(/\s+/g, '-'), name: f.name.toUpperCase(), overlay: "guide-none", folder: "/" + f.name, streak: 0 });
                     added++;
                 }
             });
 
-            // 2. PRUNE DELETED (Mirror Mode)
             const preCount = myProjects.length;
-            myProjects = myProjects.filter(p => {
-                // Keep it ONLY if it exists in Remote Paths
-                return remotePaths.includes(p.folder.toLowerCase());
-            });
+            myProjects = myProjects.filter(p => remotePaths.includes(p.folder.toLowerCase()));
             const removed = preCount - myProjects.length;
 
             if(added > 0 || removed > 0) {
                 localStorage.setItem('my_projects', JSON.stringify(myProjects));
                 renderProjects();
                 status.innerText = `( +${added} / -${removed} )`;
-            } else {
-                status.innerText = "( OK )";
-            }
-            setTimeout(() => { status.innerText = "v0.5.4"; status.style.color = "#555"; }, 2000);
+            } else { status.innerText = "( OK )"; }
+            setTimeout(() => { status.innerText = "v0.5.5"; status.style.color = "#555"; }, 2000);
 
-        } catch (e) { status.innerText = "( ERR )"; status.style.color = "red"; }
+        } catch (e) { 
+            if(e.message === "401") handleAuthError();
+            else { status.innerText = "( ERR )"; status.style.color = "red"; }
+        }
     }
 
     async function uploadPhoto() {
@@ -431,16 +424,30 @@
             const meta = { time: now, project: pid, cam: facingMode };
             await sendToDropbox(new Blob([JSON.stringify(meta)],{type:'application/json'}), `${proj.folder}/${pid}-${dateStr}.json`);
             retryPhoto(); status.innerText = "SAVED"; 
-            setTimeout(() => { loadProject(pid); status.innerText = "v0.5.4"; status.style.color = "#555"; }, 1500);
-        } catch(e) { status.innerText = "ERR"; status.style.color = "red"; }
+            setTimeout(() => { loadProject(pid); status.innerText = "v0.5.5"; status.style.color = "#555"; }, 1500);
+        } catch(e) { 
+            if(e.message.includes("401")) handleAuthError();
+            else { status.innerText = "ERR"; status.style.color = "red"; }
+        }
     }
+
     async function sendToDropbox(f, p) {
         const r = await fetch('https://content.dropboxapi.com/2/files/upload', { 
             method: 'POST', 
             headers: { 'Authorization': 'Bearer '+localStorage.getItem('dbx_token'), 'Content-Type': 'application/octet-stream', 'Dropbox-API-Arg': JSON.stringify({ path: p, mode: 'add', autorename: true }) }, 
             body: f 
         });
+        if(r.status === 401) throw new Error("401");
         if(!r.ok) throw new Error("Upload Err");
+    }
+
+    function handleAuthError() {
+        localStorage.removeItem('dbx_token');
+        alert("TOKEN EXPIRED. RELOADING...");
+        location.reload();
+    }
+    function resetToken() {
+        if(confirm("LOGOUT?")) { localStorage.removeItem('dbx_token'); location.reload(); }
     }
 
     function toggleProjectModal() { document.getElementById('project-modal').classList.toggle('hidden'); }
