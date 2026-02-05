@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CAPSULE v0.6.6</title>
+    <title>CAPSULE v0.6.7</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="icon.png">
     <link rel="apple-touch-icon" href="icon.png">
@@ -65,16 +65,21 @@
         #preview-layer { position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: 25; display: none; background: #000; }
         #ascii-canvas { position: absolute; width: 100%; height: 100%; object-fit: contain; z-index: 30; pointer-events: none; display: none; background: black; }
         
-        /* DATA OVERLAY */
+        /* DATA OVERLAY (SCROLLABLE) */
         #meta-overlay {
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            padding: 30px;
-            z-index: 40; pointer-events: none; 
+            padding: 20px;
+            padding-top: 90px; /* Avoid Header */
+            padding-bottom: 120px; /* Avoid Footer */
+            z-index: 40; 
+            pointer-events: auto; /* Enable Scrolling Interaction */
+            overflow-y: auto; /* Enable Scroll */
             display: none;
-            flex-direction: column; justify-content: center;
-            font-family: var(--font-body); font-size: 11px; line-height: 1.6;
+            flex-direction: column; justify-content: flex-start; /* Start text at top */
+            font-family: var(--font-body); font-size: 12px; line-height: 1.5;
             white-space: pre-wrap;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+            /* No drop shadow */
+            -webkit-overflow-scrolling: touch; /* Smooth scroll on iOS */
         }
         
         .mask-container {
@@ -195,7 +200,7 @@
 
     <div class="status-bar">
         <span id="streak-display">STRK: 00</span>
-        <span id="status-msg">v0.6.6</span>
+        <span id="status-msg">v0.6.7</span>
     </div>
 </div>
 
@@ -247,7 +252,7 @@
         const d = pendingMetadata || { note: "Data Gathering..." };
         const overlay = document.getElementById('meta-overlay');
         
-        let txt = `// CAPSULE LOG v0.6.6\n`;
+        let txt = `// CAPSULE LOG v0.6.7\n`;
         txt += `// ${new Date().toISOString()}\n\n`;
         
         if(d.loc)     txt += `LOC:   ${d.loc.city || "Unknown"}\n`;
@@ -256,10 +261,10 @@
         txt += `\n// FINANCIAL\n`;
         if(d.rates)   txt += `EUR/HUF: ${d.rates.EUR_HUF}\nUSD/HUF: ${d.rates.USD_HUF}\nBTC/USD: ${d.rates.BTC}\n`;
         
-        txt += `\n// HEADLINES (TELEX/BBC)\n`;
+        txt += `\n// TOP HEADLINES\n`;
         if(d.news) {
-            d.news.local.forEach(n => txt += `> ${n.substr(0, 35)}...\n`);
-            d.news.global.forEach(n => txt += `> ${n.substr(0, 35)}...\n`);
+            d.news.local.forEach(n => txt += `> ${n}\n\n`); // Full text, double spacing
+            d.news.global.forEach(n => txt += `> ${n}\n\n`);
         }
         
         overlay.innerText = txt;
@@ -275,15 +280,16 @@
         const brightness = Math.floor(colorSum / (imgData.data.length / 4));
         const overlay = document.getElementById('meta-overlay');
         overlay.style.color = brightness > 140 ? "black" : "white";
-        overlay.style.textShadow = brightness > 140 ? "none" : "0 1px 2px rgba(0,0,0,0.8)";
+        // No drop shadow as requested
+        overlay.style.textShadow = "none";
     }
 
-    // --- 4. DATA GATHERING (MEGA) ---
+    // --- 4. DATA GATHERING (HOTTEST NEWS) ---
     async function gatherMegaData() {
         pendingMetadata = { meta_ver: "2.1", loc: {}, news: {local:[], global:[]} };
         
         // 1. Get Location (with fallback)
-        let lat=47.49, lon=19.04; // Budapest Default
+        let lat=47.49, lon=19.04; 
         try {
             const pos = await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j,{timeout:1500}));
             lat=pos.coords.latitude; lon=pos.coords.longitude;
@@ -292,24 +298,22 @@
 
         // 2. Parallel Fetch
         try {
+            // Encode Google News URLs for the Bridge
+            const googleHu = encodeURIComponent("https://news.google.com/rss?ceid=HU:hu&hl=hu&gl=HU");
+            const googleWorld = encodeURIComponent("https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en");
+
             const [weather, finance, btc, newsLocal, newsGlobal] = await Promise.allSettled([
-                // Weather (Open-Meteo)
                 fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`).then(r=>r.json()),
-                // Fiat (Frankfurter)
                 fetch('https://api.frankfurter.app/latest?from=EUR&to=HUF,USD').then(r=>r.json()),
-                // BTC (Coindesk or similar free API) -> Using Coincap for reliability
                 fetch('https://api.coincap.io/v2/assets/bitcoin').then(r=>r.json()),
-                // Local News (Telex RSS -> JSON)
-                fetch('https://api.rss2json.com/v1/api.json?rss_url=https://telex.hu/rss').then(r=>r.json()),
-                // Global News (BBC RSS -> JSON)
-                fetch('https://api.rss2json.com/v1/api.json?rss_url=http://feeds.bbci.co.uk/news/world/rss.xml').then(r=>r.json())
+                // Use Google News via RSS2JSON for "Hottest"
+                fetch(`https://api.rss2json.com/v1/api.json?rss_url=${googleHu}`).then(r=>r.json()),
+                fetch(`https://api.rss2json.com/v1/api.json?rss_url=${googleWorld}`).then(r=>r.json())
             ]);
 
             if(weather.status === "fulfilled") pendingMetadata.weather = weather.value.current_weather;
             
             if(finance.status === "fulfilled") {
-                // Frankfurter gives EUR base. We need USD/HUF. 
-                // EUR/HUF = X. EUR/USD = Y. -> USD/HUF = X/Y.
                 const r = finance.value.rates;
                 pendingMetadata.rates = {
                     EUR_HUF: r.HUF,
@@ -321,6 +325,7 @@
                 pendingMetadata.rates.BTC = parseFloat(btc.value.data.priceUsd).toFixed(0);
             }
 
+            // Grab top 2 from Google News (These are the "Leads")
             if(newsLocal.status === "fulfilled" && newsLocal.value.items) {
                 pendingMetadata.news.local = newsLocal.value.items.slice(0, 2).map(i => i.title);
             }
@@ -339,7 +344,7 @@
     let asciiBlob = null;
 
     document.getElementById('snap-btn').addEventListener('click', () => {
-        gatherMegaData(); // Trigger Fetch
+        gatherMegaData(); 
 
         const vidW = video.videoWidth;
         const targetW = vidW;
@@ -403,12 +408,11 @@
                     myProjects.push({ id: pid, name: f.name.toUpperCase(), overlay: "guide-none", folder: "/"+f.name, streak: 0 });
                     added++;
                 }
-                // Ghost Hunting Logic could go here (fetch latest thumb)
             }
             
             localStorage.setItem('my_projects', JSON.stringify(myProjects));
             renderProjects();
-            status.innerText = `( +${added} )`; setTimeout(() => { status.innerText = "v0.6.6"; status.style.color = "#555"; }, 2000);
+            status.innerText = `( +${added} )`; setTimeout(() => { status.innerText = "v0.6.7"; status.style.color = "#555"; }, 2000);
 
         } catch (e) { status.innerText = "( ERR )"; }
     }
@@ -434,7 +438,7 @@
             }
 
             retryPhoto(); status.innerText = "SAVED"; 
-            setTimeout(() => { loadProject(pid); status.innerText = "v0.6.6"; }, 1500);
+            setTimeout(() => { loadProject(pid); status.innerText = "v0.6.7"; }, 1500);
         } catch(e) { status.innerText = "ERR"; }
     }
 
