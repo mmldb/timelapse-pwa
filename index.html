@@ -3,14 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CAPSULE v0.6.1</title>
+    <title>CAPSULE v0.6.2</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="icon" href="data:,">
+    
+    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
     
     <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     
     <style>
-        /* --- THEME: MONOCHROME INDUSTRIAL (CLASSIC) --- */
+        /* --- THEME: MONOCHROME INDUSTRIAL --- */
         :root {
             --bg: #000000;
             --fg: #ffffff;
@@ -58,7 +60,6 @@
             position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: 1; 
             transition: transform 0.3s;
         }
-        /* Mirror Class for Selfies */
         video.mirrored { transform: scaleX(-1); }
         
         #onion-layer { 
@@ -155,7 +156,7 @@
 
 <div id="project-modal" class="modal hidden">
     <div class="modal-box">
-        <h2>( NEW_PROJECT )</h2>
+        <h2>( NEW )</h2>
         <input type="text" id="new-proj-name" placeholder="NAME (e.g. Gym)">
         <select id="new-proj-overlay" style="border: 1px solid #333; padding: 10px;">
             <option value="guide-face">GUIDE: FACE</option>
@@ -215,7 +216,7 @@
 
     <div class="status-bar">
         <span id="streak-display">STRK: 00</span>
-        <span id="status-msg">v0.6.1</span>
+        <span id="status-msg">v0.6.2</span>
     </div>
 </div>
 
@@ -263,14 +264,9 @@
     
     function cycleOverlay() {
         const container = document.getElementById('overlay-container');
-        // Find current
-        let currentClass = "";
-        if (container.firstElementChild) currentClass = container.firstElementChild.className;
-        
+        let currentClass = container.firstElementChild ? container.firstElementChild.className : "";
         let idx = overlayList.indexOf(currentClass);
         if (idx === -1) idx = 0;
-        
-        // Next
         let nextIdx = (idx + 1) % overlayList.length;
         container.innerHTML = `<div class="${overlayList[nextIdx]}"></div>`;
     }
@@ -364,138 +360,4 @@
 
     function retryPhoto() { 
         document.getElementById('preview-layer').style.display = 'none';
-        document.getElementById('cam-controls').classList.remove('hidden');
-        document.getElementById('review-panel').classList.add('hidden');
-        currentBlob = null; asciiBlob = null;
-    }
-
-    // --- 6. DATA & SYNC ---
-    const select = document.getElementById('project-select');
-    let db;
-    const DB_REQ = indexedDB.open("CapsuleSys", 1);
-    DB_REQ.onupgradeneeded = (e) => { e.target.result.createObjectStore('ghosts', { keyPath: 'id' }); };
-    DB_REQ.onsuccess = (e) => { db = e.target.result; renderProjects(); };
-
-    function renderProjects() {
-        select.innerHTML = "";
-        myProjects.forEach(p => {
-            const opt = document.createElement('option');
-            opt.value = p.id; opt.innerText = p.name; select.appendChild(opt);
-        });
-        if (!myProjects.find(p => p.id === select.value) && myProjects.length > 0) select.value = myProjects[0].id;
-        loadProject(select.value);
-    }
-    
-    function loadProject(id) {
-        const proj = myProjects.find(p => p.id === id);
-        if(!proj) return;
-        document.getElementById('overlay-container').innerHTML = `<div class="${proj.overlay}"></div>`;
-        document.getElementById('streak-display').innerText = `STRK: ${(proj.streak || 0).toString().padStart(2,'0')}`;
-        if(db) {
-            db.transaction(['ghosts']).objectStore('ghosts').get(id).onsuccess = (e) => {
-                document.getElementById('onion-layer').src = e.target.result ? URL.createObjectURL(e.target.result.blob) : "";
-            };
-        }
-    }
-    select.addEventListener('change', (e) => loadProject(e.target.value));
-
-    async function syncProjects() {
-        const status = document.getElementById('status-msg');
-        status.innerText = "( SYNCING )"; status.style.color = "white";
-        try {
-            const res = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
-                method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + dbxToken, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ path: "", recursive: false })
-            });
-            if(res.status === 401) throw new Error("401");
-            const data = await res.json();
-            
-            const remoteFolders = data.entries.filter(e => e['.tag'] === 'folder');
-            const remotePaths = remoteFolders.map(f => "/" + f.name.toLowerCase());
-            
-            let added = 0;
-            remoteFolders.forEach(f => {
-                if (!myProjects.find(p => p.folder.toLowerCase() === ("/" + f.name).toLowerCase())) {
-                    myProjects.push({ id: f.name.toLowerCase().replace(/\s+/g, '-'), name: f.name.toUpperCase(), overlay: "guide-none", folder: "/" + f.name, streak: 0 });
-                    added++;
-                }
-            });
-
-            const preCount = myProjects.length;
-            myProjects = myProjects.filter(p => remotePaths.includes(p.folder.toLowerCase()));
-            const removed = preCount - myProjects.length;
-
-            if(added > 0 || removed > 0) {
-                localStorage.setItem('my_projects', JSON.stringify(myProjects));
-                renderProjects();
-                status.innerText = `( +${added}/-${removed} )`;
-            } else { status.innerText = "( OK )"; }
-            setTimeout(() => { status.innerText = "v0.6.1"; status.style.color = "#555"; }, 2000);
-
-        } catch (e) { 
-            if(e.message === "401") handleAuthError();
-            else { status.innerText = "( ERR )"; status.style.color = "red"; }
-        }
-    }
-
-    async function uploadPhoto() {
-        if (!currentBlob) return;
-        const status = document.getElementById('status-msg');
-        status.innerText = "UPLOADING..."; status.style.color = "white";
-        const pid = select.value;
-        const proj = myProjects.find(p => p.id === pid);
-        const now = new Date();
-        const dateStr = now.toISOString().split('T')[0];
-
-        try {
-            db.transaction(['ghosts'], 'readwrite').objectStore('ghosts').put({ id: pid, blob: currentBlob });
-            if(proj.lastDate !== dateStr) {
-                proj.streak = (proj.streak || 0) + 1;
-                proj.lastDate = dateStr;
-                localStorage.setItem('my_projects', JSON.stringify(myProjects));
-            }
-            await sendToDropbox(currentBlob, `${proj.folder}/${pid}-${dateStr}.jpg`);
-            await sendToDropbox(asciiBlob, `${proj.folder}/${pid}-${dateStr}-ascii.jpg`);
-            const meta = { time: now, project: pid, cam: facingMode };
-            await sendToDropbox(new Blob([JSON.stringify(meta)],{type:'application/json'}), `${proj.folder}/${pid}-${dateStr}.json`);
-            
-            retryPhoto(); status.innerText = "SAVED"; 
-            setTimeout(() => { loadProject(pid); status.innerText = "v0.6.1"; status.style.color = "#555"; }, 1500);
-        } catch(e) { 
-            if(e.message.includes("401")) handleAuthError();
-            else { status.innerText = "ERR"; status.style.color = "red"; }
-        }
-    }
-
-    async function sendToDropbox(f, p) {
-        const r = await fetch('https://content.dropboxapi.com/2/files/upload', { 
-            method: 'POST', 
-            headers: { 'Authorization': 'Bearer '+localStorage.getItem('dbx_token'), 'Content-Type': 'application/octet-stream', 'Dropbox-API-Arg': JSON.stringify({ path: p, mode: 'add', autorename: true }) }, 
-            body: f 
-        });
-        if(r.status === 401) throw new Error("401");
-        if(!r.ok) throw new Error("Upload Err");
-    }
-
-    function handleAuthError() { localStorage.removeItem('dbx_token'); alert("TOKEN EXPIRED"); location.reload(); }
-    function resetToken() { if(confirm("LOGOUT?")) { localStorage.removeItem('dbx_token'); location.reload(); } }
-    
-    function toggleProjectModal() { document.getElementById('project-modal').classList.toggle('hidden'); }
-    function saveToken() { const t = document.getElementById('token-input').value.trim(); if(t) { localStorage.setItem('dbx_token', t); location.reload(); } }
-    function saveNewProject() {
-        const name = document.getElementById('new-proj-name').value;
-        const overlay = document.getElementById('new-proj-overlay').value;
-        if(!name) return;
-        const id = name.toLowerCase().replace(/\s+/g, '-');
-        myProjects.push({ id, name: name.toUpperCase(), overlay, folder: "/" + name.replace(/\s+/g, ''), streak: 0 });
-        localStorage.setItem('my_projects', JSON.stringify(myProjects));
-        renderProjects(); select.value = id; loadProject(id); toggleProjectModal();
-    }
-    function updateOnion(val) { document.getElementById('onion-layer').style.opacity = val / 100; document.getElementById('onion-val').innerText = val.padStart(2, '0'); }
-
-    if(dbxToken) { startCamera(); }
-    if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
-</script>
-</body>
-</html>
+        document.getElementById('cam-controls').classList.remove('
