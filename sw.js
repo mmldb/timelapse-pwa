@@ -1,2 +1,2 @@
-// Version: 0.7.3
+// Version: 0.7.4
 self.addEventListener('fetch', (event) => { event.respondWith(fetch(event.request)); });
