@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CAPSULE v0.7.3</title>
+    <title>CAPSULE v0.7.4</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="icon.png">
     <link rel="apple-touch-icon" href="icon.png">
@@ -133,7 +133,7 @@
     </div>
     <div class="status-bar">
         <span id="streak-display">STRK: 00</span>
-        <span id="status-msg">v0.7.3</span>
+        <span id="status-msg">v0.7.4</span>
     </div>
 </div>
 
@@ -142,10 +142,14 @@
 
 <script>
     // --- 1. PRO AUTH SYSTEM (PKCE) ---
-    const REDIRECT_URI = window.location.origin + window.location.pathname; 
+    // FORCE TRAILING SLASH FIX
+    let cleanOrigin = window.location.origin + window.location.pathname;
+    if (!cleanOrigin.endsWith('/')) cleanOrigin += '/';
+    const REDIRECT_URI = cleanOrigin;
+    
     let dbxAppKey = localStorage.getItem('dbx_app_key');
     
-    // Safety: If no key stored, force Setup Modal
+    // Safety
     if (!dbxAppKey && !window.location.search.includes('code=')) {
         document.getElementById('setup-modal').classList.remove('hidden');
     } else if (window.location.search.includes('code=')) {
@@ -163,7 +167,9 @@
         const challenge = await sha256(verifier);
         localStorage.setItem('pkce_verifier', verifier);
         
-        window.location.href = `https://www.dropbox.com/oauth2/authorize?client_id=${key}&response_type=code&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&code_challenge=${challenge}&code_challenge_method=S256&token_access_type=offline`;
+        // Construct Login URL
+        const url = `https://www.dropbox.com/oauth2/authorize?client_id=${key}&response_type=code&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&code_challenge=${challenge}&code_challenge_method=S256&token_access_type=offline`;
+        window.location.href = url;
     }
 
     async function handleAuthCode() {
@@ -184,24 +190,20 @@
                     if(data.refresh_token) localStorage.setItem('dbx_refresh_token', data.refresh_token);
                     window.history.replaceState({}, document.title, REDIRECT_URI);
                     location.reload();
-                } else throw new Error("Auth Failed");
-            } catch(e) { alert("Login Error: Check App Key."); localStorage.clear(); location.href = REDIRECT_URI; }
+                } else throw new Error(JSON.stringify(data));
+            } catch(e) { alert("Login Error: " + e.message); localStorage.clear(); location.href = REDIRECT_URI; }
         }
     }
 
     async function checkToken() { 
-        // Ping Dropbox to verify token
+        // Ping to verify
         try {
             const res = await fetch('https://api.dropboxapi.com/2/users/get_current_account', {
                 method: 'POST', headers: { 'Authorization': 'Bearer ' + localStorage.getItem('dbx_access_token') }
             });
             if(res.status === 401) {
-                // Token bad, try refresh
                 const refreshed = await refreshToken();
-                if(!refreshed) {
-                    localStorage.clear();
-                    location.reload();
-                }
+                if(!refreshed) { localStorage.clear(); location.reload(); }
             }
         } catch(e) {}
         startCamera(); 
@@ -219,7 +221,6 @@
 
     function logout() { if(confirm("RESET ALL DATA?")) { localStorage.clear(); location.href = REDIRECT_URI; } }
     
-    // PKCE Generators
     function generateRandomString(l) { let r=''; const c='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'; const v=new Uint32Array(l); crypto.getRandomValues(v); for(let i=0;i<l;i++)r+=c[v[i]%c.length]; return r; }
     async function sha256(p) { const e=new TextEncoder().encode(p); const h=await crypto.subtle.digest('SHA-256',e); return btoa(String.fromCharCode(...new Uint8Array(h))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
 
@@ -288,7 +289,7 @@
     function renderMetadataText() {
         const d = pendingMetadata || { note: "Data Gathering..." };
         const overlay = document.getElementById('meta-overlay');
-        let txt = `// CAPSULE LOG v0.7.3\n// ${new Date().toISOString()}\n\n`;
+        let txt = `// CAPSULE LOG v0.7.4\n// ${new Date().toISOString()}\n\n`;
         txt += `LOC:   ${d.loc && d.loc.city ? d.loc.city : "..."}\nENV:   ${d.weather ? d.weather.temp + "C" : "..."}\n`;
         if(d.rates) txt += `\n// MKTS\nEUR/HUF: ${d.rates.EUR_HUF}\nGBP/HUF: ${d.rates.GBP_HUF}\nUSD/HUF: ${d.rates.USD_HUF}\nBTC/USD: ${d.rates.BTC}\n`;
         if(d.news && d.news.local) { txt += `\n// FEED\n`; d.news.local.forEach(n => txt += `> ${n}\n\n`); }
@@ -332,6 +333,12 @@
         let token = localStorage.getItem('dbx_access_token'); if(!token) throw new Error("No Token");
         let res = await fetch(url, { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         if (res.status === 401) { const newToken = await refreshToken(); if (newToken) { res = await fetch(url, { method: 'POST', headers: { 'Authorization': 'Bearer ' + newToken, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); } else throw new Error("Auth Expired"); }
+        if(!res.ok) {
+            // DEBUGGING ALERT FOR SYNC ISSUES
+            const err = await res.json();
+            alert("DBX Error: " + (err.error_summary || res.statusText));
+            throw new Error(err.error_summary);
+        }
         return res;
     }
     async function uploadToDropbox(blob, path) {
@@ -352,7 +359,7 @@
             let added = 0;
             for (let f of folders) { const pid = f.name.toLowerCase().replace(/\s+/g, '-'); if(!myProjects.find(p=>p.id===pid)) { myProjects.push({ id: pid, name: f.name.toUpperCase(), overlay: "guide-none", folder: "/"+f.name, streak: 0 }); added++; } }
             localStorage.setItem('my_projects', JSON.stringify(myProjects)); renderProjects(); status.innerText = `( +${added} )`; 
-        } catch (e) { status.innerText = "( ERR )"; } finally { setBusy(false); setTimeout(() => { status.innerText = "v0.7.3"; status.style.color = "#555"; }, 2000); }
+        } catch (e) { status.innerText = "( ERR )"; } finally { setBusy(false); setTimeout(() => { status.innerText = "v0.7.4"; status.style.color = "#555"; }, 2000); }
     }
     async function uploadPhoto() {
         if (!currentBlob) return;
@@ -365,7 +372,7 @@
             await uploadToDropbox(asciiBlob, `${proj.folder}/${pid}-${dateStr}-ascii.jpg`);
             if(pendingMetadata) { const metaBlob = new Blob([JSON.stringify(pendingMetadata, null, 2)], {type:'application/json'}); await uploadToDropbox(metaBlob, `${proj.folder}/${pid}-${dateStr}.json`); }
             retryPhoto(); status.innerText = "SAVED"; 
-        } catch(e) { status.innerText = "ERR"; console.log(e); } finally { setBusy(false); setTimeout(() => { loadProject(pid); status.innerText = "v0.7.3"; }, 1500); }
+        } catch(e) { status.innerText = "ERR"; console.log(e); } finally { setBusy(false); setTimeout(() => { loadProject(pid); status.innerText = "v0.7.4"; }, 1500); }
     }
 
     // BOILERPLATE
