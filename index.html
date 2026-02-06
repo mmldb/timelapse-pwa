@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CAPSULE v0.7.2</title>
+    <title>CAPSULE v0.7.3</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="icon.png">
     <link rel="apple-touch-icon" href="icon.png">
@@ -96,6 +96,8 @@
         <button onclick="toggleProjectModal()" style="background:none; border:none; color:white; font-size:20px;">+</button>
     </div>
     <div class="header-row-bot">
+        <button onclick="logout()" class="text-btn" style="color:red;">( RESET )</button>
+        
         <button onclick="toggleLens()" class="text-btn" id="btn-lens">( LENS )</button>
         <button onclick="cycleOverlay()" class="text-btn" id="btn-ovr">( OVR )</button>
         <button onclick="toggleGyro()" class="text-btn" id="btn-gyro">( LVL )</button>
@@ -131,7 +133,7 @@
     </div>
     <div class="status-bar">
         <span id="streak-display">STRK: 00</span>
-        <span id="status-msg">v0.7.2</span>
+        <span id="status-msg">v0.7.3</span>
     </div>
 </div>
 
@@ -143,7 +145,7 @@
     const REDIRECT_URI = window.location.origin + window.location.pathname; 
     let dbxAppKey = localStorage.getItem('dbx_app_key');
     
-    // Auth Init
+    // Safety: If no key stored, force Setup Modal
     if (!dbxAppKey && !window.location.search.includes('code=')) {
         document.getElementById('setup-modal').classList.remove('hidden');
     } else if (window.location.search.includes('code=')) {
@@ -156,9 +158,11 @@
         const key = document.getElementById('app-key-input').value.trim();
         if(!key) return alert("App Key Required");
         localStorage.setItem('dbx_app_key', key);
+        
         const verifier = generateRandomString(128);
-        localStorage.setItem('pkce_verifier', verifier);
         const challenge = await sha256(verifier);
+        localStorage.setItem('pkce_verifier', verifier);
+        
         window.location.href = `https://www.dropbox.com/oauth2/authorize?client_id=${key}&response_type=code&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&code_challenge=${challenge}&code_challenge_method=S256&token_access_type=offline`;
     }
 
@@ -167,6 +171,7 @@
         const code = params.get('code');
         const verifier = localStorage.getItem('pkce_verifier');
         dbxAppKey = localStorage.getItem('dbx_app_key');
+
         if(code && verifier) {
             try {
                 const res = await fetch('https://api.dropboxapi.com/oauth2/token', {
@@ -180,11 +185,28 @@
                     window.history.replaceState({}, document.title, REDIRECT_URI);
                     location.reload();
                 } else throw new Error("Auth Failed");
-            } catch(e) { alert("Login Error"); localStorage.clear(); location.href = REDIRECT_URI; }
+            } catch(e) { alert("Login Error: Check App Key."); localStorage.clear(); location.href = REDIRECT_URI; }
         }
     }
 
-    async function checkToken() { startCamera(); }
+    async function checkToken() { 
+        // Ping Dropbox to verify token
+        try {
+            const res = await fetch('https://api.dropboxapi.com/2/users/get_current_account', {
+                method: 'POST', headers: { 'Authorization': 'Bearer ' + localStorage.getItem('dbx_access_token') }
+            });
+            if(res.status === 401) {
+                // Token bad, try refresh
+                const refreshed = await refreshToken();
+                if(!refreshed) {
+                    localStorage.clear();
+                    location.reload();
+                }
+            }
+        } catch(e) {}
+        startCamera(); 
+    }
+
     async function refreshToken() {
         const refresh = localStorage.getItem('dbx_refresh_token'); const key = localStorage.getItem('dbx_app_key');
         if(!refresh || !key) return false;
@@ -194,77 +216,48 @@
             if(data.access_token) { localStorage.setItem('dbx_access_token', data.access_token); return data.access_token; }
         } catch(e) {} return false;
     }
-    function logout() { if(confirm("DISCONNECT?")) { localStorage.clear(); location.href = REDIRECT_URI; } }
+
+    function logout() { if(confirm("RESET ALL DATA?")) { localStorage.clear(); location.href = REDIRECT_URI; } }
+    
+    // PKCE Generators
     function generateRandomString(l) { let r=''; const c='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'; const v=new Uint32Array(l); crypto.getRandomValues(v); for(let i=0;i<l;i++)r+=c[v[i]%c.length]; return r; }
     async function sha256(p) { const e=new TextEncoder().encode(p); const h=await crypto.subtle.digest('SHA-256',e); return btoa(String.fromCharCode(...new Uint8Array(h))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
 
-    // --- 2. CAMERA & LENS LOGIC ---
+    // --- 2. CAMERA & LENS ---
     let currentStream = null;
-    let facingMode = "user"; // 'user' or 'environment'
+    let facingMode = "user";
     let videoDevices = [];
-    let currentLensIndex = 0; // Index in the videoDevices array
+    let currentLensIndex = 0;
     const video = document.getElementById('video');
 
     async function startCamera() {
         if (currentStream) currentStream.getTracks().forEach(t => t.stop());
-        
-        // Setup Constraints
         let constraints = { video: { facingMode: facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } } };
-        
-        // If we have specific lens devices and we are in environment mode
         if (facingMode === 'environment' && videoDevices.length > 0) {
-            const deviceId = videoDevices[currentLensIndex].deviceId;
-            constraints = { video: { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } } };
+            constraints = { video: { deviceId: { exact: videoDevices[currentLensIndex].deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } } };
         }
-
-        // Mirror check
         if (facingMode === 'user') video.classList.add('mirrored'); else video.classList.remove('mirrored');
-
         try {
             const stream = await navigator.mediaDevices.getUserMedia(constraints);
-            video.srcObject = stream; 
-            currentStream = stream;
-            
-            // If first run, enumerate devices for next time
+            video.srcObject = stream; currentStream = stream;
             if (videoDevices.length === 0) enumerateLenses();
-            
         } catch (e) { console.error(e); }
     }
 
     async function enumerateLenses() {
         const devices = await navigator.mediaDevices.enumerateDevices();
-        // Filter for video inputs that are NOT the front camera
-        // Note: Identifying "Back" vs "Front" reliably across all browsers is tricky.
-        // We filter by label usually containing "back" or "environment".
         const backCams = devices.filter(d => d.kind === 'videoinput' && d.label.toLowerCase().includes('back'));
-        
-        if (backCams.length > 0) {
-            videoDevices = backCams;
-        } else {
-            // Fallback: Store all video inputs if labels are generic
-            videoDevices = devices.filter(d => d.kind === 'videoinput');
-        }
+        videoDevices = backCams.length > 0 ? backCams : devices.filter(d => d.kind === 'videoinput');
     }
 
     function toggleLens() {
-        if (facingMode === 'user') {
-            alert("Switch to Rear Camera first!");
-            return;
-        }
-        if (videoDevices.length <= 1) {
-            alert("No extra lenses found.");
-            return;
-        }
-        // Cycle to next lens
+        if (facingMode === 'user') { alert("Use Rear Camera"); return; }
+        if (videoDevices.length <= 1) { alert("No lens found"); return; }
         currentLensIndex = (currentLensIndex + 1) % videoDevices.length;
-        startCamera(); // Restart with specific deviceID
+        startCamera();
         document.getElementById('status-msg').innerText = `LENS: ${currentLensIndex + 1}`;
     }
-
-    function flipCamera() { 
-        facingMode = (facingMode === "user") ? "environment" : "user";
-        startCamera(); 
-    }
+    function flipCamera() { facingMode = (facingMode === "user") ? "environment" : "user"; startCamera(); }
 
     // --- METADATA ---
     let pendingMetadata = null; 
@@ -295,7 +288,7 @@
     function renderMetadataText() {
         const d = pendingMetadata || { note: "Data Gathering..." };
         const overlay = document.getElementById('meta-overlay');
-        let txt = `// CAPSULE LOG v0.7.2\n// ${new Date().toISOString()}\n\n`;
+        let txt = `// CAPSULE LOG v0.7.3\n// ${new Date().toISOString()}\n\n`;
         txt += `LOC:   ${d.loc && d.loc.city ? d.loc.city : "..."}\nENV:   ${d.weather ? d.weather.temp + "C" : "..."}\n`;
         if(d.rates) txt += `\n// MKTS\nEUR/HUF: ${d.rates.EUR_HUF}\nGBP/HUF: ${d.rates.GBP_HUF}\nUSD/HUF: ${d.rates.USD_HUF}\nBTC/USD: ${d.rates.BTC}\n`;
         if(d.news && d.news.local) { txt += `\n// FEED\n`; d.news.local.forEach(n => txt += `> ${n}\n\n`); }
@@ -359,7 +352,7 @@
             let added = 0;
             for (let f of folders) { const pid = f.name.toLowerCase().replace(/\s+/g, '-'); if(!myProjects.find(p=>p.id===pid)) { myProjects.push({ id: pid, name: f.name.toUpperCase(), overlay: "guide-none", folder: "/"+f.name, streak: 0 }); added++; } }
             localStorage.setItem('my_projects', JSON.stringify(myProjects)); renderProjects(); status.innerText = `( +${added} )`; 
-        } catch (e) { status.innerText = "( ERR )"; } finally { setBusy(false); setTimeout(() => { status.innerText = "v0.7.2"; status.style.color = "#555"; }, 2000); }
+        } catch (e) { status.innerText = "( ERR )"; } finally { setBusy(false); setTimeout(() => { status.innerText = "v0.7.3"; status.style.color = "#555"; }, 2000); }
     }
     async function uploadPhoto() {
         if (!currentBlob) return;
@@ -372,7 +365,7 @@
             await uploadToDropbox(asciiBlob, `${proj.folder}/${pid}-${dateStr}-ascii.jpg`);
             if(pendingMetadata) { const metaBlob = new Blob([JSON.stringify(pendingMetadata, null, 2)], {type:'application/json'}); await uploadToDropbox(metaBlob, `${proj.folder}/${pid}-${dateStr}.json`); }
             retryPhoto(); status.innerText = "SAVED"; 
-        } catch(e) { status.innerText = "ERR"; console.log(e); } finally { setBusy(false); setTimeout(() => { loadProject(pid); status.innerText = "v0.7.2"; }, 1500); }
+        } catch(e) { status.innerText = "ERR"; console.log(e); } finally { setBusy(false); setTimeout(() => { loadProject(pid); status.innerText = "v0.7.3"; }, 1500); }
     }
 
     // BOILERPLATE
@@ -390,6 +383,7 @@
     function loadProject(id) { const p=myProjects.find(x=>x.id===id); if(!p) return; document.getElementById('overlay-container').innerHTML=`<div class="${p.overlay}"></div>`; document.getElementById('streak-display').innerText=`STRK: ${(p.streak||0).toString().padStart(2,'0')}`; const req=indexedDB.open("CapsuleSys",1); req.onupgradeneeded=e=>e.target.result.createObjectStore('ghosts',{keyPath:'id'}); req.onsuccess=e=>{e.target.result.transaction(['ghosts']).objectStore('ghosts').get(id).onsuccess=ev=>{document.getElementById('onion-layer').src=ev.target.result?URL.createObjectURL(ev.target.result.blob):"";}}; }
     document.getElementById('project-select').addEventListener('change',e=>loadProject(e.target.value));
     
+    // STARTUP
     if(localStorage.getItem('dbx_access_token')) { renderProjects(); checkToken(); }
     if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
 </script>
