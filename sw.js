@@ -1,2 +1,3 @@
-// Version: 0.7.7
-self.addEventListener('fetch', (event) => { event.respondWith(fetch(event.request)); });
+// Version: 0.7.8
+const CACHE_NAME = 'capsule-v0.7.8';
+// ... rest of sw.js ...
