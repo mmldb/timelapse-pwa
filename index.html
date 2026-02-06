@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CAPSULE v0.6.8</title>
+    <title>CAPSULE v0.7.2</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="icon.png">
     <link rel="apple-touch-icon" href="icon.png">
@@ -12,113 +12,46 @@
     
     <style>
         /* --- THEME: MONOCHROME INDUSTRIAL --- */
-        :root {
-            --bg: #000000;
-            --fg: #ffffff;
-            --dim: #444444;
-            --border: 1px dashed #333; 
-            --font-head: 'DotGothic16', sans-serif;
-            --font-body: 'Space Mono', monospace;
-        }
+        :root { --bg: #000; --fg: #fff; --dim: #444; --border: 1px dashed #333; --font-head: 'DotGothic16', sans-serif; --font-body: 'Space Mono', monospace; }
+        body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 13px; height: 100vh; display: flex; flex-direction: column; overflow: hidden; -webkit-font-smoothing: antialiased; }
 
-        body { 
-            margin: 0; background: var(--bg); color: var(--fg); 
-            font-family: var(--font-body); font-size: 13px;
-            height: 100vh; display: flex; flex-direction: column; overflow: hidden; 
-            -webkit-font-smoothing: antialiased;
-        }
-
-        /* --- HEADER --- */
-        header { 
-            padding: 15px; border-bottom: var(--border);
-            display: flex; flex-direction: column; gap: 15px;
-            background: rgba(0,0,0,0.95); z-index: 50;
-        }
+        /* HEADER */
+        header { padding: 15px; border-bottom: var(--border); display: flex; flex-direction: column; gap: 15px; background: rgba(0,0,0,0.95); z-index: 50; }
         .header-row-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; }
         .header-row-bot { display: flex; justify-content: space-between; align-items: center; width: 100%; padding-top: 5px; }
-        
         .app-title { font-family: var(--font-head); font-size: 20px; white-space: nowrap; }
+        select { background: black; color: white; border: none; border-bottom: 1px solid #333; border-radius: 0; padding: 5px 0; outline: none; flex-grow: 1; text-align: center; font-family: var(--font-body); }
+        .text-btn { background: none; border: none; color: #666; font-size: 11px; cursor: pointer; padding: 10px; font-family: var(--font-body); text-transform: uppercase; transition: opacity 0.2s; }
+        .text-btn:disabled, button:disabled { opacity: 0.3; pointer-events: none; cursor: wait; }
         
-        select {
-            background: black; color: white;
-            border: none; border-bottom: 1px solid #333; border-radius: 0; 
-            padding: 5px 0; font-family: var(--font-body); outline: none;
-            flex-grow: 1; text-align: center; font-size: 14px;
-        }
-        
-        .text-btn { 
-            background: none; border: none; color: #666; font-size: 11px; cursor: pointer; 
-            padding: 10px; font-family: var(--font-body); text-transform: uppercase;
-        }
-        .text-btn.active { color: white; text-decoration: underline; }
-
-        /* --- VIEWFINDER --- */
-        .viewport { 
-            flex-grow: 1; position: relative; background: #050505; 
-            display: flex; justify-content: center; align-items: center; overflow: hidden;
-        }
-        
+        /* VIEWFINDER */
+        .viewport { flex-grow: 1; position: relative; background: #050505; display: flex; justify-content: center; align-items: center; overflow: hidden; }
         video { position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: 1; transition: transform 0.3s; }
         video.mirrored { transform: scaleX(-1); }
-        
         #onion-layer { position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: 10; opacity: 0; pointer-events: none; filter: grayscale(100%); }
         #preview-layer { position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: 25; display: none; background: #000; }
         #ascii-canvas { position: absolute; width: 100%; height: 100%; object-fit: contain; z-index: 30; pointer-events: none; display: none; background: black; }
+        #meta-overlay { position: absolute; inset: 0; padding: 20px 20px 120px 20px; padding-top: 90px; z-index: 40; pointer-events: auto; overflow-y: auto; display: none; flex-direction: column; justify-content: flex-start; font-size: 12px; line-height: 1.5; white-space: pre-wrap; -webkit-overflow-scrolling: touch; }
         
-        /* DATA OVERLAY (SCROLLABLE) */
-        #meta-overlay {
-            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            padding: 20px;
-            padding-top: 80px; /* Adjusted so Top stats are visible */
-            padding-bottom: 120px;
-            z-index: 40; 
-            pointer-events: auto;
-            overflow-y: auto; 
-            display: none;
-            flex-direction: column; justify-content: flex-start;
-            font-family: var(--font-body); font-size: 12px; line-height: 1.5;
-            white-space: pre-wrap;
-            -webkit-overflow-scrolling: touch; 
-        }
-        
-        .mask-container {
-            position: relative; z-index: 20; pointer-events: none;
-            width: 100%; max-width: 600px; aspect-ratio: 4/5;
-            box-shadow: 0 0 0 9999px rgba(0,0,0,0.9);
-            border: 1px solid rgba(255,255,255,0.2);
-            display: flex; justify-content: center; align-items: center;
-        }
-
+        .mask-container { position: relative; z-index: 20; pointer-events: none; width: 100%; max-width: 600px; aspect-ratio: 4/5; box-shadow: 0 0 0 9999px rgba(0,0,0,0.9); border: 1px solid rgba(255,255,255,0.2); display: flex; justify-content: center; align-items: center; }
         .overlay-layer { width: 100%; height: 100%; position: relative; }
         
         .guide-face { position: absolute; top: 48%; left: 50%; transform: translate(-50%, -50%); width: 190px; height: 270px; border: 1px dashed rgba(255,255,255,0.6); border-radius: 50%; }
         .guide-dot { position: absolute; top: 50%; left: 50%; width: 6px; height: 6px; background: white; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 0 1px rgba(0,0,0,0.5); }
         .guide-thirds { width: 100%; height: 100%; opacity: 0.2; background-image: linear-gradient(white 1px, transparent 1px), linear-gradient(90deg, white 1px, transparent 1px); background-size: 33.3% 33.3%; }
         .guide-x { width: 100%; height: 100%; opacity: 0.3; background: linear-gradient(to top left, transparent 49.5%, white 49.5%, white 50.5%, transparent 50.5%), linear-gradient(to top right, transparent 49.5%, white 49.5%, white 50.5%, transparent 50.5%); }
-
         #gyro-line { position: absolute; top: 50%; left: 15%; right: 15%; height: 1px; background: rgba(255,255,255,0.6); z-index: 22; transform-origin: center; display: none; transition: transform 0.1s; }
         #gyro-line.level { background: #fff; height: 3px; box-shadow: 0 0 6px #fff; }
 
-        /* --- CONTROLS --- */
-        .controls { 
-            padding: 20px; border-top: var(--border); background: var(--bg);
-            display: flex; flex-direction: column; gap: 15px; z-index: 50;
-        }
-
-        button.ui-btn {
-            background: transparent; color: white; border: 1px solid #333; padding: 15px;
-            font-family: var(--font-body); font-weight: 700; font-size: 14px; 
-            text-transform: uppercase; cursor: pointer; transition: all 0.1s;
-            letter-spacing: 1px;
-        }
+        /* CONTROLS */
+        .controls { padding: 20px; border-top: var(--border); background: var(--bg); display: flex; flex-direction: column; gap: 15px; z-index: 50; }
+        button.ui-btn { background: transparent; color: white; border: 1px solid #333; padding: 15px; font-family: var(--font-body); font-weight: 700; font-size: 14px; text-transform: uppercase; cursor: pointer; transition: all 0.1s; letter-spacing: 1px; }
         button.ui-btn:active { background: white; color: black; border-color: white; }
         button.primary { border-color: #888; }
-
         .slider-row { display: flex; align-items: center; gap: 10px; font-size: 11px; color: #666; font-family: var(--font-body); }
         input[type=range] { -webkit-appearance: none; background: transparent; flex-grow: 1; height: 40px; margin: 0; }
         input[type=range]::-webkit-slider-runnable-track { height: 2px; background: #333; }
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; margin-top: -9px; height: 20px; width: 20px; background: white; border-radius: 50%; border: 2px solid #000; }
-
         .status-bar { display: flex; justify-content: space-between; font-family: var(--font-body); color: #555; font-size: 10px; margin-top: 5px; }
         
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
@@ -131,9 +64,10 @@
 
 <div id="setup-modal" class="modal hidden">
     <div class="modal-box">
-        <h2>( AUTH )</h2>
-        <input type="text" id="token-input" placeholder="DROPBOX TOKEN" style="background:#111; border:1px solid #444; padding:10px; color:white; width:100%;">
-        <button class="ui-btn primary" onclick="saveToken()">CONNECT</button>
+        <h2>( SETUP )</h2>
+        <p style="font-size:11px; color:#888;">ENTER DROPBOX APP KEY TO ENABLE PERMANENT LOGIN.</p>
+        <input type="text" id="app-key-input" placeholder="APP KEY (e.g. 5m4k...)" style="background:#111; border:1px solid #444; padding:10px; color:white; width:100%;">
+        <button class="ui-btn primary" onclick="initiateLogin()">LOGIN WITH DROPBOX</button>
     </div>
 </div>
 
@@ -162,7 +96,7 @@
         <button onclick="toggleProjectModal()" style="background:none; border:none; color:white; font-size:20px;">+</button>
     </div>
     <div class="header-row-bot">
-        <button onclick="resetToken()" class="text-btn" style="color:#444;">( RESET )</button>
+        <button onclick="toggleLens()" class="text-btn" id="btn-lens">( LENS )</button>
         <button onclick="cycleOverlay()" class="text-btn" id="btn-ovr">( OVR )</button>
         <button onclick="toggleGyro()" class="text-btn" id="btn-gyro">( LVL )</button>
         <button onclick="syncProjects()" class="text-btn" id="btn-sync">( SYNC )</button>
@@ -174,7 +108,8 @@
     <img id="onion-layer" />
     <img id="preview-layer" />
     <canvas id="ascii-canvas"></canvas>
-    <div id="meta-overlay"></div> <div class="mask-container">
+    <div id="meta-overlay"></div>
+    <div class="mask-container">
         <div id="overlay-container" class="overlay-layer"></div>
         <div id="gyro-line"></div>
     </div>
@@ -186,20 +121,17 @@
         <input type="range" min="0" max="100" value="0" oninput="updateOnion(this.value)">
         <span id="onion-val">00</span>
     </div>
-
     <div id="cam-controls" style="display:flex; gap:10px;">
         <button class="ui-btn primary" id="snap-btn" style="flex:2;">CAPTURE</button>
         <button class="ui-btn" onclick="flipCamera()" style="flex:1;">CAM</button>
     </div>
-
     <div id="review-panel" class="hidden" style="display: flex; gap: 10px;">
         <button class="ui-btn" onclick="retryPhoto()" style="flex:1;">RETRY</button>
-        <button class="ui-btn primary" onclick="uploadPhoto()" style="flex:2;">SAVE</button>
+        <button class="ui-btn primary" id="save-btn" onclick="uploadPhoto()" style="flex:2;">SAVE</button>
     </div>
-
     <div class="status-bar">
         <span id="streak-display">STRK: 00</span>
-        <span id="status-msg">v0.6.8</span>
+        <span id="status-msg">v0.7.2</span>
     </div>
 </div>
 
@@ -207,74 +139,168 @@
 <canvas id="small-canvas"></canvas>
 
 <script>
-    // --- 1. CONFIG ---
-    let dbxToken = localStorage.getItem('dbx_token');
-    if (!dbxToken) document.getElementById('setup-modal').classList.remove('hidden');
+    // --- 1. PRO AUTH SYSTEM (PKCE) ---
+    const REDIRECT_URI = window.location.origin + window.location.pathname; 
+    let dbxAppKey = localStorage.getItem('dbx_app_key');
+    
+    // Auth Init
+    if (!dbxAppKey && !window.location.search.includes('code=')) {
+        document.getElementById('setup-modal').classList.remove('hidden');
+    } else if (window.location.search.includes('code=')) {
+        handleAuthCode();
+    } else {
+        checkToken();
+    }
 
-    const defaultProjects = [{ id: "face-daily", name: "FACE_DAILY", overlay: "guide-face", folder: "/FaceProject", streak: 0, lastDate: "" }];
-    let myProjects = JSON.parse(localStorage.getItem('my_projects')) || defaultProjects;
-    let pendingMetadata = null; 
+    async function initiateLogin() {
+        const key = document.getElementById('app-key-input').value.trim();
+        if(!key) return alert("App Key Required");
+        localStorage.setItem('dbx_app_key', key);
+        const verifier = generateRandomString(128);
+        localStorage.setItem('pkce_verifier', verifier);
+        const challenge = await sha256(verifier);
+        window.location.href = `https://www.dropbox.com/oauth2/authorize?client_id=${key}&response_type=code&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&code_challenge=${challenge}&code_challenge_method=S256&token_access_type=offline`;
+    }
 
-    // --- 2. CAMERA ---
+    async function handleAuthCode() {
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
+        const verifier = localStorage.getItem('pkce_verifier');
+        dbxAppKey = localStorage.getItem('dbx_app_key');
+        if(code && verifier) {
+            try {
+                const res = await fetch('https://api.dropboxapi.com/oauth2/token', {
+                    method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: new URLSearchParams({ code, grant_type: 'authorization_code', client_id: dbxAppKey, redirect_uri: REDIRECT_URI, code_verifier: verifier })
+                });
+                const data = await res.json();
+                if(data.access_token) {
+                    localStorage.setItem('dbx_access_token', data.access_token);
+                    if(data.refresh_token) localStorage.setItem('dbx_refresh_token', data.refresh_token);
+                    window.history.replaceState({}, document.title, REDIRECT_URI);
+                    location.reload();
+                } else throw new Error("Auth Failed");
+            } catch(e) { alert("Login Error"); localStorage.clear(); location.href = REDIRECT_URI; }
+        }
+    }
+
+    async function checkToken() { startCamera(); }
+    async function refreshToken() {
+        const refresh = localStorage.getItem('dbx_refresh_token'); const key = localStorage.getItem('dbx_app_key');
+        if(!refresh || !key) return false;
+        try {
+            const res = await fetch('https://api.dropboxapi.com/oauth2/token', { method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refresh, client_id: key }) });
+            const data = await res.json();
+            if(data.access_token) { localStorage.setItem('dbx_access_token', data.access_token); return data.access_token; }
+        } catch(e) {} return false;
+    }
+    function logout() { if(confirm("DISCONNECT?")) { localStorage.clear(); location.href = REDIRECT_URI; } }
+    function generateRandomString(l) { let r=''; const c='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'; const v=new Uint32Array(l); crypto.getRandomValues(v); for(let i=0;i<l;i++)r+=c[v[i]%c.length]; return r; }
+    async function sha256(p) { const e=new TextEncoder().encode(p); const h=await crypto.subtle.digest('SHA-256',e); return btoa(String.fromCharCode(...new Uint8Array(h))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+
+    // --- 2. CAMERA & LENS LOGIC ---
     let currentStream = null;
-    let facingMode = "user";
+    let facingMode = "user"; // 'user' or 'environment'
+    let videoDevices = [];
+    let currentLensIndex = 0; // Index in the videoDevices array
     const video = document.getElementById('video');
 
-    async function startCamera(mode) {
-        if(!mode) mode = facingMode;
+    async function startCamera() {
         if (currentStream) currentStream.getTracks().forEach(t => t.stop());
-        facingMode = mode;
+        
+        // Setup Constraints
+        let constraints = { video: { facingMode: facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } } };
+        
+        // If we have specific lens devices and we are in environment mode
+        if (facingMode === 'environment' && videoDevices.length > 0) {
+            const deviceId = videoDevices[currentLensIndex].deviceId;
+            constraints = { video: { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } } };
+        }
+
+        // Mirror check
         if (facingMode === 'user') video.classList.add('mirrored'); else video.classList.remove('mirrored');
+
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode, width: { ideal: 1920 }, height: { ideal: 1080 } } });
-            video.srcObject = stream;
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = stream; 
             currentStream = stream;
+            
+            // If first run, enumerate devices for next time
+            if (videoDevices.length === 0) enumerateLenses();
+            
         } catch (e) { console.error(e); }
     }
-    function flipCamera() { startCamera(facingMode === "user" ? "environment" : "user"); }
 
-    // --- 3. METADATA DISPLAY ---
-    function toggleMetaPreview() {
-        const panel = document.getElementById('review-panel');
-        const overlay = document.getElementById('meta-overlay');
-        if (panel.classList.contains('hidden')) return;
+    async function enumerateLenses() {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        // Filter for video inputs that are NOT the front camera
+        // Note: Identifying "Back" vs "Front" reliably across all browsers is tricky.
+        // We filter by label usually containing "back" or "environment".
+        const backCams = devices.filter(d => d.kind === 'videoinput' && d.label.toLowerCase().includes('back'));
         
-        if (overlay.style.display === 'flex') {
-            overlay.style.display = 'none';
+        if (backCams.length > 0) {
+            videoDevices = backCams;
         } else {
-            overlay.style.display = 'flex';
-            renderMetadataText();
+            // Fallback: Store all video inputs if labels are generic
+            videoDevices = devices.filter(d => d.kind === 'videoinput');
         }
+    }
+
+    function toggleLens() {
+        if (facingMode === 'user') {
+            alert("Switch to Rear Camera first!");
+            return;
+        }
+        if (videoDevices.length <= 1) {
+            alert("No extra lenses found.");
+            return;
+        }
+        // Cycle to next lens
+        currentLensIndex = (currentLensIndex + 1) % videoDevices.length;
+        startCamera(); // Restart with specific deviceID
+        document.getElementById('status-msg').innerText = `LENS: ${currentLensIndex + 1}`;
+    }
+
+    function flipCamera() { 
+        facingMode = (facingMode === "user") ? "environment" : "user";
+        startCamera(); 
+    }
+
+    // --- METADATA ---
+    let pendingMetadata = null; 
+    async function gatherMegaData() {
+        pendingMetadata = { meta_ver: "2.2", loc: {}, news: {local:[], global:[], celeb:[]} };
+        let lat=47.49, lon=19.04; 
+        try { const pos = await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j,{timeout:2000})); lat=pos.coords.latitude; lon=pos.coords.longitude; pendingMetadata.loc.city = `${lat.toFixed(2)}, ${lon.toFixed(2)}`; } catch(e){ pendingMetadata.loc.city = "GPS Timeout"; }
+        try {
+            const [weather, finance, btc, telex, h24, celeb, bbc] = await Promise.allSettled([
+                fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`).then(r=>r.json()),
+                fetch('https://api.frankfurter.app/latest?from=EUR&to=HUF,USD,GBP').then(r=>r.json()),
+                fetch('https://api.coincap.io/v2/assets/bitcoin').then(r=>r.json()),
+                fetch(`https://api.rss2json.com/v1/api.json?rss_url=https://telex.hu/rss`).then(r=>r.json()),
+                fetch(`https://api.rss2json.com/v1/api.json?rss_url=https://24.hu/feed/`).then(r=>r.json()),
+                fetch(`https://api.rss2json.com/v1/api.json?rss_url=https://24.hu/szorakozas/feed/`).then(r=>r.json()),
+                fetch(`https://api.rss2json.com/v1/api.json?rss_url=http://feeds.bbci.co.uk/news/world/rss.xml`).then(r=>r.json())
+            ]);
+            if(weather.status === "fulfilled") pendingMetadata.weather = weather.value.current_weather;
+            if(finance.status === "fulfilled") { const r = finance.value.rates; pendingMetadata.rates = { EUR_HUF: r.HUF, GBP_HUF: (r.HUF / r.GBP).toFixed(2), USD_HUF: (r.HUF / r.USD).toFixed(2) }; }
+            if(btc.status === "fulfilled") pendingMetadata.rates.BTC = parseFloat(btc.value.data.priceUsd).toFixed(0);
+            let localMix = []; if(telex.status === "fulfilled" && telex.value.items) localMix.push(telex.value.items[0].title); if(h24.status === "fulfilled" && h24.value.items) localMix.push(h24.value.items[0].title); pendingMetadata.news.local = localMix;
+            if(celeb.status === "fulfilled" && celeb.value.items) pendingMetadata.news.celeb = celeb.value.items.slice(0, 2).map(i => i.title);
+            if(bbc.status === "fulfilled" && bbc.value.items) pendingMetadata.news.global = bbc.value.items.slice(0, 2).map(i => i.title);
+            if(document.getElementById('meta-overlay').style.display === 'flex') renderMetadataText();
+        } catch(e) { console.log(e); }
     }
 
     function renderMetadataText() {
         const d = pendingMetadata || { note: "Data Gathering..." };
         const overlay = document.getElementById('meta-overlay');
-        
-        let txt = `// CAPSULE LOG v0.6.8\n`;
-        txt += `// ${new Date().toISOString()}\n\n`;
-        
-        // LOC / ENV (Force display even if N/A)
-        txt += `LOC:   ${d.loc && d.loc.city ? d.loc.city : "Acquiring..."}\n`;
-        txt += `ENV:   ${d.weather ? d.weather.temp + "C" : "N/A"}\n`;
-        
-        txt += `\n// MARKETS (EUR/GBP/USD)\n`;
-        if(d.rates) {
-            txt += `EUR/HUF: ${d.rates.EUR_HUF}\n`;
-            txt += `GBP/HUF: ${d.rates.GBP_HUF}\n`;
-            txt += `USD/HUF: ${d.rates.USD_HUF}\n`;
-            txt += `BTC/USD: ${d.rates.BTC}\n`;
-        } else { txt += "Rates N/A\n"; }
-        
-        txt += `\n// INDIE FEED (TELEX/24.HU)\n`;
-        if(d.news && d.news.local) d.news.local.forEach(n => txt += `> ${n}\n\n`);
-
-        txt += `\n// GOSSIP (VELVET/24)\n`;
-        if(d.news && d.news.celeb) d.news.celeb.forEach(n => txt += `> ${n}\n\n`);
-        
-        txt += `\n// GLOBAL (BBC)\n`;
-        if(d.news && d.news.global) d.news.global.forEach(n => txt += `> ${n}\n\n`);
-        
+        let txt = `// CAPSULE LOG v0.7.2\n// ${new Date().toISOString()}\n\n`;
+        txt += `LOC:   ${d.loc && d.loc.city ? d.loc.city : "..."}\nENV:   ${d.weather ? d.weather.temp + "C" : "..."}\n`;
+        if(d.rates) txt += `\n// MKTS\nEUR/HUF: ${d.rates.EUR_HUF}\nGBP/HUF: ${d.rates.GBP_HUF}\nUSD/HUF: ${d.rates.USD_HUF}\nBTC/USD: ${d.rates.BTC}\n`;
+        if(d.news && d.news.local) { txt += `\n// FEED\n`; d.news.local.forEach(n => txt += `> ${n}\n\n`); }
+        if(d.news && d.news.celeb) { txt += `\n// CELEB\n`; d.news.celeb.forEach(n => txt += `> ${n}\n\n`); }
+        if(d.news && d.news.global) { txt += `\n// WORLD\n`; d.news.global.forEach(n => txt += `> ${n}\n\n`); }
         overlay.innerText = txt;
     }
 
@@ -282,223 +308,89 @@
         const ctx = canvas.getContext('2d');
         const imgData = ctx.getImageData(canvas.width/2-50, canvas.height/2-50, 100, 100);
         let colorSum = 0;
-        for(let x=0; x<imgData.data.length; x+=4) {
-            colorSum += Math.floor((imgData.data[x]+imgData.data[x+1]+imgData.data[x+2])/3);
-        }
-        const brightness = Math.floor(colorSum / (imgData.data.length / 4));
+        for(let x=0; x<imgData.data.length; x+=4) colorSum += Math.floor((imgData.data[x]+imgData.data[x+1]+imgData.data[x+2])/3);
+        const b = Math.floor(colorSum / (imgData.data.length / 4));
         const overlay = document.getElementById('meta-overlay');
-        overlay.style.color = brightness > 140 ? "black" : "white";
+        overlay.style.color = b > 140 ? "black" : "white";
         overlay.style.textShadow = "none";
     }
 
-    // --- 4. DATA GATHERING ---
-    async function gatherMegaData() {
-        pendingMetadata = { meta_ver: "2.2", loc: {}, news: {local:[], global:[], celeb:[]} };
-        
-        // 1. Get Location (with fallback)
-        let lat=47.49, lon=19.04; 
-        try {
-            const pos = await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j,{timeout:2000}));
-            lat=pos.coords.latitude; lon=pos.coords.longitude;
-            pendingMetadata.loc.city = `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
-        } catch(e){ pendingMetadata.loc.city = "GPS Timeout"; }
-
-        // 2. Parallel Fetch
-        try {
-            const [weather, finance, btc, telex, h24, celeb, bbc] = await Promise.allSettled([
-                fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`).then(r=>r.json()),
-                // Added GBP
-                fetch('https://api.frankfurter.app/latest?from=EUR&to=HUF,USD,GBP').then(r=>r.json()),
-                fetch('https://api.coincap.io/v2/assets/bitcoin').then(r=>r.json()),
-                // Independent Sources
-                fetch(`https://api.rss2json.com/v1/api.json?rss_url=https://telex.hu/rss`).then(r=>r.json()),
-                fetch(`https://api.rss2json.com/v1/api.json?rss_url=https://24.hu/feed/`).then(r=>r.json()),
-                // Celeb Source
-                fetch(`https://api.rss2json.com/v1/api.json?rss_url=https://24.hu/szorakozas/feed/`).then(r=>r.json()),
-                fetch(`https://api.rss2json.com/v1/api.json?rss_url=http://feeds.bbci.co.uk/news/world/rss.xml`).then(r=>r.json())
-            ]);
-
-            if(weather.status === "fulfilled") pendingMetadata.weather = weather.value.current_weather;
-            
-            if(finance.status === "fulfilled") {
-                const r = finance.value.rates;
-                // EUR base. 
-                // GBP/HUF = (EUR/HUF) / (EUR/GBP). 
-                // Wait, Frankfurter allows 'from'. 
-                // Let's stick to EUR base math to avoid multiple calls.
-                // Or better: Base EUR. 
-                // r.HUF = 400. r.GBP = 0.85. -> GBP/HUF = 400 / 0.85.
-                pendingMetadata.rates = {
-                    EUR_HUF: r.HUF,
-                    GBP_HUF: (r.HUF / r.GBP).toFixed(2),
-                    USD_HUF: (r.HUF / r.USD).toFixed(2)
-                };
-            }
-            
-            if(btc.status === "fulfilled") {
-                pendingMetadata.rates.BTC = parseFloat(btc.value.data.priceUsd).toFixed(0);
-            }
-
-            // Mix Telex and 24.hu for Hard News
-            let localMix = [];
-            if(telex.status === "fulfilled" && telex.value.items) localMix.push(telex.value.items[0].title);
-            if(h24.status === "fulfilled" && h24.value.items) localMix.push(h24.value.items[0].title);
-            pendingMetadata.news.local = localMix;
-
-            // Celeb
-            if(celeb.status === "fulfilled" && celeb.value.items) {
-                pendingMetadata.news.celeb = celeb.value.items.slice(0, 2).map(i => i.title);
-            }
-
-            // Global
-            if(bbc.status === "fulfilled" && bbc.value.items) {
-                pendingMetadata.news.global = bbc.value.items.slice(0, 2).map(i => i.title);
-            }
-
-            if(document.getElementById('meta-overlay').style.display === 'flex') renderMetadataText();
-            
-        } catch(e) { console.log("Data fetch minor error", e); }
-    }
-
-    // --- 5. CAPTURE ---
+    // --- UI/UX ---
     const canvas = document.getElementById('canvas'); 
-    let currentBlob = null;
-    let asciiBlob = null;
-
+    let currentBlob = null; let asciiBlob = null;
     document.getElementById('snap-btn').addEventListener('click', () => {
         gatherMegaData(); 
-
-        const vidW = video.videoWidth;
-        const targetW = vidW;
-        const targetH = vidW * 1.25; 
-        const startY = (video.videoHeight - targetH) / 2;
+        const vidW = video.videoWidth; const targetW = vidW; const targetH = vidW * 1.25; const startY = (video.videoHeight - targetH) / 2;
         canvas.width = targetW; canvas.height = targetH;
         const ctx = canvas.getContext('2d');
         if(facingMode === "user") { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
         ctx.drawImage(video, 0, startY, targetW, targetH, 0, 0, targetW, targetH);
-        
         calculateBrightness(canvas);
-
         const asciiCan = drawAsciiToCanvas(generateAscii(canvas));
-        const asciiEl = document.getElementById('ascii-canvas');
-        asciiEl.style.display = 'block'; setTimeout(() => asciiEl.style.display = 'none', 800);
-        
-        const preview = document.getElementById('preview-layer');
-        preview.src = canvas.toDataURL('image/jpeg');
-        preview.style.display = 'block';
-
-        canvas.toBlob(b => currentBlob = b, 'image/jpeg', 0.95);
-        asciiCan.toBlob(b => asciiBlob = b, 'image/jpeg', 0.80);
-        
-        document.getElementById('cam-controls').classList.add('hidden');
-        document.getElementById('review-panel').classList.remove('hidden');
+        const asciiEl = document.getElementById('ascii-canvas'); asciiEl.style.display = 'block'; setTimeout(() => asciiEl.style.display = 'none', 800);
+        const preview = document.getElementById('preview-layer'); preview.src = canvas.toDataURL('image/jpeg'); preview.style.display = 'block';
+        canvas.toBlob(b => currentBlob = b, 'image/jpeg', 0.95); asciiCan.toBlob(b => asciiBlob = b, 'image/jpeg', 0.80);
+        document.getElementById('cam-controls').classList.add('hidden'); document.getElementById('review-panel').classList.remove('hidden');
         document.getElementById('status-msg').innerText = "TAP IMAGE FOR DATA";
     });
 
-    function retryPhoto() { 
-        document.getElementById('preview-layer').style.display = 'none';
-        document.getElementById('meta-overlay').style.display = 'none';
-        document.getElementById('cam-controls').classList.remove('hidden');
-        document.getElementById('review-panel').classList.add('hidden');
-        currentBlob = null; 
+    // --- DROPBOX API ---
+    async function callDropbox(url, body) {
+        let token = localStorage.getItem('dbx_access_token'); if(!token) throw new Error("No Token");
+        let res = await fetch(url, { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (res.status === 401) { const newToken = await refreshToken(); if (newToken) { res = await fetch(url, { method: 'POST', headers: { 'Authorization': 'Bearer ' + newToken, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); } else throw new Error("Auth Expired"); }
+        return res;
+    }
+    async function uploadToDropbox(blob, path) {
+        let token = localStorage.getItem('dbx_access_token');
+        let res = await fetch('https://content.dropboxapi.com/2/files/upload', { method: 'POST', headers: { 'Authorization': 'Bearer '+token, 'Content-Type': 'application/octet-stream', 'Dropbox-API-Arg': JSON.stringify({ path: path, mode: 'add', autorename: true }) }, body: blob });
+        if(res.status === 401) { const newToken = await refreshToken(); if(newToken) { res = await fetch('https://content.dropboxapi.com/2/files/upload', { method: 'POST', headers: { 'Authorization': 'Bearer '+newToken, 'Content-Type': 'application/octet-stream', 'Dropbox-API-Arg': JSON.stringify({ path: path, mode: 'add', autorename: true }) }, body: blob }); } }
+        if(!res.ok) throw new Error("Upload Failed");
     }
 
-    // --- 6. UTILS ---
-    const overlayList = ["guide-face", "guide-dot", "guide-thirds", "guide-x", "guide-none"];
-    function cycleOverlay() {
-        const c = document.getElementById('overlay-container');
-        let idx = overlayList.indexOf(c.firstElementChild ? c.firstElementChild.className : "") || 0;
-        c.innerHTML = `<div class="${overlayList[(idx+1)%overlayList.length]}"></div>`;
-    }
-    
+    // --- APP ---
+    function setBusy(isBusy) { const btns = document.querySelectorAll('button'); btns.forEach(b => b.disabled = isBusy); document.getElementById('status-msg').style.color = isBusy ? "yellow" : "#555"; }
     async function syncProjects() {
-        const status = document.getElementById('status-msg');
-        status.innerText = "( DEEP SYNC )"; status.style.color = "white";
+        const status = document.getElementById('status-msg'); status.innerText = "( SYNCING )"; setBusy(true);
         try {
-            const res = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
-                method: 'POST', headers: { 'Authorization': 'Bearer ' + dbxToken, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ path: "", recursive: false })
-            });
-            if(res.status===401) throw new Error("401");
+            const res = await callDropbox('https://api.dropboxapi.com/2/files/list_folder', { path: "", recursive: false });
             const data = await res.json();
             const folders = data.entries.filter(e => e['.tag'] === 'folder');
-            
             let added = 0;
-            for (let f of folders) {
-                const pid = f.name.toLowerCase().replace(/\s+/g, '-');
-                if(!myProjects.find(p=>p.id===pid)) {
-                    myProjects.push({ id: pid, name: f.name.toUpperCase(), overlay: "guide-none", folder: "/"+f.name, streak: 0 });
-                    added++;
-                }
-            }
-            
-            localStorage.setItem('my_projects', JSON.stringify(myProjects));
-            renderProjects();
-            status.innerText = `( +${added} )`; setTimeout(() => { status.innerText = "v0.6.8"; status.style.color = "#555"; }, 2000);
-
-        } catch (e) { status.innerText = "( ERR )"; }
+            for (let f of folders) { const pid = f.name.toLowerCase().replace(/\s+/g, '-'); if(!myProjects.find(p=>p.id===pid)) { myProjects.push({ id: pid, name: f.name.toUpperCase(), overlay: "guide-none", folder: "/"+f.name, streak: 0 }); added++; } }
+            localStorage.setItem('my_projects', JSON.stringify(myProjects)); renderProjects(); status.innerText = `( +${added} )`; 
+        } catch (e) { status.innerText = "( ERR )"; } finally { setBusy(false); setTimeout(() => { status.innerText = "v0.7.2"; status.style.color = "#555"; }, 2000); }
     }
-
     async function uploadPhoto() {
         if (!currentBlob) return;
-        const status = document.getElementById('status-msg');
-        status.innerText = "UPLOADING..."; 
-        const pid = document.getElementById('project-select').value;
-        const dateStr = new Date().toISOString().split('T')[0];
-        const proj = myProjects.find(p=>p.id===pid);
-
+        const status = document.getElementById('status-msg'); status.innerText = "UPLOADING..."; setBusy(true);
+        const pid = document.getElementById('project-select').value; const dateStr = new Date().toISOString().split('T')[0]; const proj = myProjects.find(p=>p.id===pid);
         try {
             const db = await new Promise(r => { const req=indexedDB.open("CapsuleSys",1); req.onsuccess=e=>r(e.target.result); });
             db.transaction(['ghosts'], 'readwrite').objectStore('ghosts').put({ id: pid, blob: currentBlob });
-
-            await sendToDropbox(currentBlob, `${proj.folder}/${pid}-${dateStr}.jpg`);
-            await sendToDropbox(asciiBlob, `${proj.folder}/${pid}-${dateStr}-ascii.jpg`);
-            
-            if(pendingMetadata) {
-                const metaBlob = new Blob([JSON.stringify(pendingMetadata, null, 2)], {type:'application/json'});
-                await sendToDropbox(metaBlob, `${proj.folder}/${pid}-${dateStr}.json`);
-            }
-
+            await uploadToDropbox(currentBlob, `${proj.folder}/${pid}-${dateStr}.jpg`);
+            await uploadToDropbox(asciiBlob, `${proj.folder}/${pid}-${dateStr}-ascii.jpg`);
+            if(pendingMetadata) { const metaBlob = new Blob([JSON.stringify(pendingMetadata, null, 2)], {type:'application/json'}); await uploadToDropbox(metaBlob, `${proj.folder}/${pid}-${dateStr}.json`); }
             retryPhoto(); status.innerText = "SAVED"; 
-            setTimeout(() => { loadProject(pid); status.innerText = "v0.6.8"; }, 1500);
-        } catch(e) { status.innerText = "ERR"; }
+        } catch(e) { status.innerText = "ERR"; console.log(e); } finally { setBusy(false); setTimeout(() => { loadProject(pid); status.innerText = "v0.7.2"; }, 1500); }
     }
 
-    async function sendToDropbox(f, p) {
-        const r = await fetch('https://content.dropboxapi.com/2/files/upload', { 
-            method: 'POST', headers: { 'Authorization': 'Bearer '+dbxToken, 'Content-Type': 'application/octet-stream', 'Dropbox-API-Arg': JSON.stringify({ path: p, mode: 'add', autorename: true }) }, body: f 
-        });
-        if(r.status===401) { localStorage.removeItem('dbx_token'); alert("Token Expired"); location.reload(); }
-    }
-
-    const asciiChars = "@%#*+=-:. "; 
-    function generateAscii(c){ const ctx=document.getElementById('small-canvas').getContext('2d'); ctx.drawImage(c,0,0,100,55); const p=ctx.getImageData(0,0,100,55).data; let s=""; for(let y=0;y<55;y++){for(let x=0;x<100;x++){ let i=(y*100+x)*4; s+=asciiChars[Math.floor(((p[i]+p[i+1]+p[i+2])/3)/255*9)];} s+="\n";} return s; }
+    // BOILERPLATE
+    function retryPhoto() { document.getElementById('preview-layer').style.display = 'none'; document.getElementById('meta-overlay').style.display = 'none'; document.getElementById('cam-controls').classList.remove('hidden'); document.getElementById('review-panel').classList.add('hidden'); currentBlob = null; }
+    function toggleMetaPreview() { const o = document.getElementById('meta-overlay'); if(document.getElementById('review-panel').classList.contains('hidden')) return; o.style.display = o.style.display==='flex'?'none':'flex'; if(o.style.display==='flex') renderMetadataText(); }
+    const asciiChars = "@%#*+=-:. "; function generateAscii(c){ const ctx=document.getElementById('small-canvas').getContext('2d'); ctx.drawImage(c,0,0,100,55); const p=ctx.getImageData(0,0,100,55).data; let s=""; for(let y=0;y<55;y++){for(let x=0;x<100;x++){ let i=(y*100+x)*4; s+=asciiChars[Math.floor(((p[i]+p[i+1]+p[i+2])/3)/255*9)];} s+="\n";} return s; }
     function drawAsciiToCanvas(s){ const c=document.getElementById('ascii-canvas'); c.width=1000;c.height=1250; const x=c.getContext('2d'); x.fillStyle="black";x.fillRect(0,0,1000,1250); x.fillStyle="white";x.font="18px monospace"; s.split('\n').forEach((l,i)=>x.fillText(l,20,30+(i*18))); return c; }
+    const overlayList = ["guide-face", "guide-dot", "guide-thirds", "guide-x", "guide-none"];
+    function cycleOverlay() { const c = document.getElementById('overlay-container'); let idx = overlayList.indexOf(c.firstElementChild ? c.firstElementChild.className : "") || 0; c.innerHTML = `<div class="${overlayList[(idx+1)%overlayList.length]}"></div>`; }
     function toggleGyro(){const l=document.getElementById('gyro-line');l.style.display=l.style.display==='block'?'none':'block'; if(l.style.display==='block' && typeof DeviceOrientationEvent.requestPermission==='function') DeviceOrientationEvent.requestPermission().then(s=>{if(s==='granted') window.addEventListener('deviceorientation',e=>{l.style.transform=`rotate(${e.gamma}deg)`; if(e.gamma>-3&&e.gamma<3)l.classList.add('level');else l.classList.remove('level');})}); else window.addEventListener('deviceorientation',e=>{l.style.transform=`rotate(${e.gamma}deg)`;});}
     function updateOnion(v) { document.getElementById('onion-layer').style.opacity = v/100; document.getElementById('onion-val').innerText = v.padStart(2,'0'); }
     function toggleProjectModal() { document.getElementById('project-modal').classList.toggle('hidden'); }
-    function saveToken() { const t = document.getElementById('token-input').value.trim(); if(t) { localStorage.setItem('dbx_token', t); location.reload(); } }
-    function saveNewProject() {
-        const name = document.getElementById('new-proj-name').value;
-        const overlay = document.getElementById('new-proj-overlay').value;
-        if(!name) return;
-        const id = name.toLowerCase().replace(/\s+/g, '-');
-        myProjects.push({ id, name: name.toUpperCase(), overlay, folder: "/" + name.replace(/\s+/g, ''), streak: 0 });
-        localStorage.setItem('my_projects', JSON.stringify(myProjects));
-        renderProjects(); document.getElementById('project-select').value = id; loadProject(id); toggleProjectModal();
-    }
+    function saveNewProject() { const name = document.getElementById('new-proj-name').value; const overlay = document.getElementById('new-proj-overlay').value; if(!name) return; const id = name.toLowerCase().replace(/\s+/g, '-'); myProjects.push({ id, name: name.toUpperCase(), overlay, folder: "/" + name.replace(/\s+/g, ''), streak: 0 }); localStorage.setItem('my_projects', JSON.stringify(myProjects)); renderProjects(); document.getElementById('project-select').value = id; loadProject(id); toggleProjectModal(); }
     function renderProjects() { const s=document.getElementById('project-select'); s.innerHTML=""; myProjects.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.innerText=p.name;s.appendChild(o)}); loadProject(s.value); }
-    function loadProject(id) { 
-        const p=myProjects.find(x=>x.id===id); if(!p) return;
-        document.getElementById('overlay-container').innerHTML=`<div class="${p.overlay}"></div>`;
-        document.getElementById('streak-display').innerText=`STRK: ${(p.streak||0).toString().padStart(2,'0')}`;
-        const req=indexedDB.open("CapsuleSys",1); req.onupgradeneeded=e=>e.target.result.createObjectStore('ghosts',{keyPath:'id'});
-        req.onsuccess=e=>{e.target.result.transaction(['ghosts']).objectStore('ghosts').get(id).onsuccess=ev=>{document.getElementById('onion-layer').src=ev.target.result?URL.createObjectURL(ev.target.result.blob):"";}};
-    }
+    function loadProject(id) { const p=myProjects.find(x=>x.id===id); if(!p) return; document.getElementById('overlay-container').innerHTML=`<div class="${p.overlay}"></div>`; document.getElementById('streak-display').innerText=`STRK: ${(p.streak||0).toString().padStart(2,'0')}`; const req=indexedDB.open("CapsuleSys",1); req.onupgradeneeded=e=>e.target.result.createObjectStore('ghosts',{keyPath:'id'}); req.onsuccess=e=>{e.target.result.transaction(['ghosts']).objectStore('ghosts').get(id).onsuccess=ev=>{document.getElementById('onion-layer').src=ev.target.result?URL.createObjectURL(ev.target.result.blob):"";}}; }
     document.getElementById('project-select').addEventListener('change',e=>loadProject(e.target.value));
-    function resetToken() { if(confirm("LOGOUT?")) { localStorage.removeItem('dbx_token'); location.reload(); } }
-
-    if(dbxToken) startCamera();
+    
+    if(localStorage.getItem('dbx_access_token')) { renderProjects(); checkToken(); }
     if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
 </script>
 </body>
